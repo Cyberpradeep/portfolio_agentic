@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 MODEL_PATH = ROOT.parent / "examples" / "3d_model_testing" / "biped_robot.glb"
 
-GEMINI_API_KEY = "AIzaSyBKNfvwh6im3gMwRioK8R7o1NJnmApWrxA"
+GEMINI_API_KEY = "your_api_key"
 MODEL = os.getenv("MODEL", "gemini-3.1-flash-live-preview")
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8000"))
