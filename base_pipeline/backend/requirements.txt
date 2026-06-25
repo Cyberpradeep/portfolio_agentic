@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-dotenv
+sse-starlette
+pipecat-ai[google,silero]
+google-genai

@@ -1,0 +1,172 @@
+{
+    "certification_summary": {
+        "total_completed": 9,
+        "focus_areas": [
+            "Artificial Intelligence",
+            "Cyber Security",
+            "Networking",
+            "Distributed Systems",
+            "Cloud Technologies"
+        ]
+    },
+    "completed_certifications": [
+        {
+            "name": "Microsoft Azure AI Fundamentals",
+            "code": "AI-900",
+            "provider": "Microsoft",
+            "status": "Completed",
+            "category": "Artificial Intelligence",
+            "skills_gained": [
+                "AI Fundamentals",
+                "Machine Learning Fundamentals",
+                "Computer Vision Basics",
+                "Natural Language Processing Basics",
+                "Responsible AI",
+                "Azure AI Services"
+            ],
+            "importance": "This certification provided foundational knowledge about AI concepts and Microsoft AI services."
+        },
+        {
+            "name": "GitHub Foundations",
+            "code": "GH-900",
+            "provider": "GitHub",
+            "status": "Completed",
+            "category": "Software Development",
+            "skills_gained": [
+                "Git",
+                "GitHub",
+                "Version Control",
+                "Repositories",
+                "Branching",
+                "Pull Requests"
+            ]
+        },
+        {
+            "name": "Network Fundamentals",
+            "provider": "Cisco",
+            "status": "Completed",
+            "category": "Networking",
+            "skills_gained": [
+                "Networking Basics",
+                "OSI Model",
+                "TCP/IP",
+                "Network Communication"
+            ]
+        },
+        {
+            "name": "Network Devices and Configuration",
+            "provider": "Cisco",
+            "status": "Completed",
+            "category": "Networking",
+            "skills_gained": [
+                "Routers",
+                "Switches",
+                "Network Configuration",
+                "Network Troubleshooting"
+            ]
+        },
+        {
+            "name": "Android Bug Bounty Hunting: Hunt Like a Rat",
+            "provider": "EC-Council",
+            "status": "Completed",
+            "category": "Cyber Security",
+            "skills_gained": [
+                "Android Security",
+                "Mobile Application Security",
+                "Bug Hunting",
+                "Vulnerability Identification"
+            ]
+        },
+        {
+            "name": "Diploma in Cyber Security",
+            "provider": "Oxford Home Study Centre",
+            "status": "Completed",
+            "category": "Cyber Security",
+            "skills_gained": [
+                "Cyber Security Fundamentals",
+                "Threat Awareness",
+                "Security Concepts"
+            ]
+        },
+        {
+            "name": "Tata Cybersecurity Security Analyst Job Simulation",
+            "provider": "Forage",
+            "status": "Completed",
+            "category": "Cyber Security",
+            "skills_gained": [
+                "Security Analysis",
+                "Threat Investigation",
+                "Incident Analysis"
+            ]
+        },
+        {
+            "name": "Distributed Systems",
+            "provider": "NPTEL",
+            "status": "Completed",
+            "category": "Computer Science",
+            "skills_gained": [
+                "Distributed Computing",
+                "Scalability",
+                "Distributed Architectures"
+            ]
+        },
+        {
+            "name": "Edge Computing",
+            "provider": "NPTEL",
+            "status": "Completed",
+            "category": "Computer Science",
+            "skills_gained": [
+                "Edge Architectures",
+                "Distributed Processing",
+                "Edge Infrastructure"
+            ]
+        }
+    ],
+    "currently_learning": [
+        {
+            "name": "Microsoft Azure AI Engineer Associate",
+            "code": "AI-102",
+            "provider": "Microsoft",
+            "status": "In Progress",
+            "focus": [
+                "Azure AI Services",
+                "Generative AI",
+                "Conversational AI",
+                "Production AI Solutions"
+            ]
+        },
+        {
+            "name": "Azure AI Foundry",
+            "provider": "Microsoft",
+            "status": "Learning",
+            "focus": [
+                "AI Agent Development",
+                "Prompt Flows",
+                "AI Applications",
+                "LLM Workflows"
+            ]
+        }
+    ],
+    "certification_journey": {
+        "starting_focus": "Cyber Security",
+        "transition": "Networking and Cyber Security certifications provided foundational technical knowledge.",
+        "current_focus": "Artificial Intelligence, Agentic AI and AI Engineering.",
+        "future_direction": [
+            "Advanced AI Certifications",
+            "Cloud AI Certifications",
+            "AI Engineering Certifications"
+        ]
+    },
+    "most_relevant_certifications_for_ai": [
+        "AI-900",
+        "AI-102 (In Progress)",
+        "Distributed Systems",
+        "Edge Computing"
+    ],
+    "most_relevant_certifications_for_cybersecurity": [
+        "Android Bug Bounty Hunting",
+        "Diploma in Cyber Security",
+        "Tata Cybersecurity Security Analyst Job Simulation",
+        "Cisco Networking Certifications"
+    ]
+}

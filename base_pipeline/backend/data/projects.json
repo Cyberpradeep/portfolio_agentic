@@ -1,0 +1,307 @@
+{
+    "projects": [
+        {
+            "id": "hospital_voice_ai_assistant",
+            "name": "Hospital Voice AI Assistant",
+            "type": "Professional Project",
+            "status": "Completed",
+            "visibility": "Can be discussed without exposing client-specific information",
+            "category": [
+                "Voice AI",
+                "Agentic AI",
+                "Healthcare AI",
+                "Speech-to-Speech Systems"
+            ],
+            "summary": "A real-time hospital appointment booking assistant that allows users to interact through natural voice conversations for booking, cancelling, updating and viewing appointments.",
+            "problem_statement": "Traditional hospital appointment systems require manual interaction, waiting times and complex navigation. The goal was to create a natural voice-based assistant that could handle appointment workflows through both web and phone channels.",
+            "my_role": [
+                "Voice AI Development",
+                "Prompt Engineering",
+                "Context Engineering",
+                "Agent Orchestration",
+                "Function Calling Integration"
+            ],
+            "technologies": {
+                "models": [
+                    "Gemini Live"
+                ],
+                "frameworks": [
+                    "Pipecat",
+                    "FastAPI"
+                ],
+                "communication": [
+                    "WebSockets"
+                ],
+                "telephony": [
+                    "Exotel"
+                ],
+                "ai_features": [
+                    "Function Calling",
+                    "Generative UI",
+                    "Voice Activity Detection"
+                ]
+            },
+            "features": [
+                "Speech-to-Speech Interaction",
+                "Appointment Booking",
+                "Appointment Cancellation",
+                "Appointment Updates",
+                "Appointment Viewing",
+                "Phone Call Integration",
+                "Web-Based Voice Assistant",
+                "Dynamic Generative UI Cards"
+            ],
+            "architecture_concepts": [
+                "Real-Time Voice AI",
+                "Agent Orchestration",
+                "Context Management",
+                "Function Calling",
+                "FSM-Based Workflow Design"
+            ],
+            "major_challenges": [
+                {
+                    "challenge": "High Token Consumption",
+                    "description": "Long voice conversations caused context growth and increased token usage."
+                },
+                {
+                    "challenge": "Context Window Management",
+                    "description": "Maintaining relevant information while avoiding context overload."
+                },
+                {
+                    "challenge": "Conversation State Tracking",
+                    "description": "Managing appointment workflows across multiple conversational steps."
+                },
+                {
+                    "challenge": "Latency",
+                    "description": "Reducing delays in real-time speech interactions."
+                },
+                {
+                    "challenge": "Voice Interruptions",
+                    "description": "Handling user interruptions during AI responses."
+                }
+            ],
+            "solutions_implemented": [
+                "Context Summarization",
+                "Context Slicing",
+                "FSM-Based Orchestration",
+                "Prompt Optimization",
+                "Token Usage Optimization",
+                "Conversation State Management"
+            ],
+            "key_learnings": [
+                "Context Engineering",
+                "Voice AI System Design",
+                "Speech-to-Speech Architecture",
+                "Telephony Integration",
+                "Real-Time AI Systems",
+                "Production AI Challenges"
+            ],
+            "skills_demonstrated": [
+                "Gemini Live",
+                "Prompt Engineering",
+                "Context Engineering",
+                "Voice AI",
+                "Function Calling",
+                "Agentic AI"
+            ]
+        },
+        {
+            "id": "english_tutor_companion",
+            "name": "English Tutor Companion",
+            "type": "Personal Project",
+            "status": "Deployed",
+            "deployment": "Railway",
+            "category": [
+                "Voice AI",
+                "Education",
+                "Conversational AI"
+            ],
+            "summary": "A multilingual voice-based AI companion capable of acting as a tutor, mentor, companion and conversational partner.",
+            "problem_statement": "Many learners struggle to practice spoken English consistently. The goal was to provide a natural conversational companion available anytime.",
+            "my_role": [
+                "Full Stack Development",
+                "Voice AI Development",
+                "Avatar Integration",
+                "Deployment"
+            ],
+            "technologies": {
+                "models": [
+                    "Gemini Live"
+                ],
+                "frameworks": [
+                    "FastAPI",
+                    "Pipecat"
+                ],
+                "frontend": [
+                    "Three.js",
+                    "VRM Avatar"
+                ],
+                "deployment": [
+                    "Railway"
+                ]
+            },
+            "features": [
+                "Speech-to-Speech Interaction",
+                "Tutor Mode",
+                "Mentor Mode",
+                "Companion Mode",
+                "Custom Instructions",
+                "Voice Customization",
+                "Mood-Based Personalities",
+                "Multilingual Conversations",
+                "Progress Tracking"
+            ],
+            "advanced_features": [
+                "Voice Activity Detection",
+                "VRM Avatar",
+                "Lip Sync",
+                "Character Animations",
+                "Real-Time Voice Streaming"
+            ],
+            "major_challenges": [
+                "Voice Activity Detection Tuning",
+                "Avatar Lip Sync Synchronization",
+                "Real-Time Streaming Stability",
+                "Conversation Memory Management"
+            ],
+            "solutions_implemented": [
+                "Pipecat VAD",
+                "Streaming Optimization",
+                "Avatar State Management",
+                "Context Handling Strategies"
+            ],
+            "key_learnings": [
+                "Voice UX Design",
+                "Real-Time Audio Systems",
+                "Avatar Integration",
+                "AI Personality Design"
+            ]
+        },
+        {
+            "id": "genai_coach",
+            "name": "GenAI Coach",
+            "type": "Personal Project",
+            "status": "Completed",
+            "category": [
+                "RAG",
+                "Education",
+                "LLM Applications"
+            ],
+            "summary": "An AI-powered learning assistant designed to teach Generative AI concepts and technologies.",
+            "problem_statement": "Learners often struggle to find structured and up-to-date information about Generative AI.",
+            "technologies": {
+                "models": [
+                    "Gemini",
+                    "Ollama Models"
+                ],
+                "frameworks": [
+                    "Flask",
+                    "LiteLLM"
+                ],
+                "database": [
+                    "MySQL"
+                ],
+                "retrieval": [
+                    "ChromaDB",
+                    "RAG"
+                ]
+            },
+            "features": [
+                "Text Chat",
+                "Image Analysis",
+                "Conversation History",
+                "RAG-Based Retrieval",
+                "Real-Time Search",
+                "Dynamic UI Components"
+            ],
+            "integrations": [
+                "DuckDuckGo Search",
+                "SQLAlchemy",
+                "MySQL"
+            ],
+            "major_challenges": [
+                "Maintaining Conversation Context",
+                "Multi-Model Testing",
+                "Retrieval Quality",
+                "Database Memory Management"
+            ],
+            "key_learnings": [
+                "RAG Pipelines",
+                "Multi-Model Architectures",
+                "Database-Backed Memory",
+                "Search-Augmented AI"
+            ]
+        },
+        {
+            "id": "ai_code_reviewer",
+            "name": "AI Code Reviewer",
+            "type": "Personal Project",
+            "status": "Completed",
+            "summary": "An LLM-powered code review assistant capable of reviewing uploaded or pasted source code.",
+            "technologies": [
+                "Gemini",
+                "Python"
+            ],
+            "features": [
+                "Code Analysis",
+                "Code Review",
+                "Improvement Suggestions"
+            ]
+        },
+        {
+            "id": "canteen_preorder_app",
+            "name": "Canteen Preorder Application",
+            "type": "Team Project",
+            "status": "Completed",
+            "category": [
+                "MERN Stack",
+                "College Project"
+            ],
+            "summary": "A meal pre-ordering platform allowing students to order food before reaching the canteen.",
+            "my_contributions": [
+                "Backend Development",
+                "Authentication",
+                "CRUD Operations",
+                "Dashboard Logic"
+            ],
+            "technologies": [
+                "MongoDB",
+                "Express.js",
+                "React",
+                "Node.js",
+                "JWT"
+            ],
+            "features": [
+                "Food Preordering",
+                "Role-Based Dashboards",
+                "Owner Analytics",
+                "Order Management"
+            ]
+        },
+        {
+            "id": "email_spam_detector",
+            "name": "Email Spam Detection System",
+            "type": "Internship Project",
+            "status": "Completed",
+            "organization": "Edunet Foundation",
+            "summary": "Machine Learning-based email spam classification system.",
+            "technologies": [
+                "Python",
+                "Machine Learning",
+                "Streamlit",
+                "Google Colab",
+                "Hugging Face"
+            ],
+            "features": [
+                "Spam Classification",
+                "Email Analysis",
+                "Web Interface"
+            ],
+            "key_learnings": [
+                "Machine Learning Fundamentals",
+                "Model Deployment",
+                "Data Preprocessing"
+            ]
+        }
+    ]
+}

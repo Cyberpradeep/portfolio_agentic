@@ -1,0 +1,215 @@
+{
+    "career_timeline": [
+        {
+            "year": 2023,
+            "milestone": "Started Bachelor of Engineering in Cyber Security",
+            "organization": "Muthayammal Engineering College",
+            "description": "Began engineering journey with specialization in Cyber Security."
+        },
+        {
+            "year": 2024,
+            "milestone": "Started exploring Artificial Intelligence",
+            "description": "Developed curiosity about AI systems, LLMs and emerging technologies while continuing Cyber Security studies."
+        },
+        {
+            "year": 2025,
+            "milestone": "Entered AI and Machine Learning ecosystem",
+            "description": "Completed AI/ML internship and started building AI applications."
+        },
+        {
+            "year": 2026,
+            "milestone": "Transitioned towards AI Engineering",
+            "description": "Joined Elverve and started working on Agentic AI, Voice AI and client-facing AI applications."
+        }
+    ],
+    "professional_experience": [
+        {
+            "company": "Edunet Foundation",
+            "role": "AI/ML Intern",
+            "employment_type": "Virtual Internship",
+            "duration": {
+                "start": "June 2025",
+                "end": "July 2025"
+            },
+            "status": "Completed",
+            "responsibilities": [
+                "Studied Machine Learning Fundamentals",
+                "Learned Supervised Learning",
+                "Learned Unsupervised Learning",
+                "Explored Machine Learning Algorithms",
+                "Built Machine Learning Applications"
+            ],
+            "project_work": [
+                {
+                    "name": "Email Spam Detection System",
+                    "description": "Developed a machine learning application capable of classifying emails as spam or non-spam."
+                }
+            ],
+            "technologies": [
+                "Python",
+                "Machine Learning",
+                "Google Colab",
+                "Streamlit",
+                "Hugging Face"
+            ],
+            "key_learnings": [
+                "Machine Learning Fundamentals",
+                "Model Training",
+                "Data Processing",
+                "Model Deployment"
+            ]
+        },
+        {
+            "company": "Elverve",
+            "role": "Junior Software Engineer Intern",
+            "employment_type": "On-site Stipend Internship",
+            "duration": {
+                "start": "January 2026",
+                "end": "Present"
+            },
+            "status": "Ongoing",
+            "primary_focus": [
+                "Agentic AI",
+                "Voice AI",
+                "LLM Applications",
+                "AI Product Development"
+            ],
+            "responsibilities": [
+                "Voice AI Development",
+                "Agentic AI Development",
+                "Prompt Engineering",
+                "Context Engineering",
+                "AI Research",
+                "Client Project Development",
+                "Documentation Reading",
+                "Technology Exploration",
+                "Backend Development"
+            ],
+            "technologies": [
+                "Gemini Live",
+                "Gemini API",
+                "FastAPI",
+                "Flask",
+                "Pipecat",
+                "WebSockets",
+                "Generative UI",
+                "CrewAI"
+            ],
+            "client_exposure": {
+                "has_client_experience": true,
+                "description": "Worked on real-world client-oriented AI projects involving voice agents, conversational AI systems and intelligent automation solutions."
+            },
+            "projects": [
+                "Hospital Voice AI Assistant"
+            ],
+            "major_learnings": [
+                "Real-Time AI Systems",
+                "Voice AI Architectures",
+                "Context Engineering",
+                "Prompt Engineering",
+                "Token Optimization",
+                "Conversation Design",
+                "Agent Orchestration",
+                "Telephony Integration"
+            ],
+            "professional_growth": [
+                "Reading Technical Documentation",
+                "Independent Research",
+                "Debugging Complex Systems",
+                "Working With Client Requirements",
+                "Production-Oriented Thinking"
+            ]
+        }
+    ],
+    "volunteer_experience": [
+        {
+            "organization": "Government Cybercrime Volunteer Program",
+            "role": "Cybercrime Volunteer",
+            "status": "Active",
+            "description": "Participated in cyber awareness and cybercrime-related initiatives.",
+            "skills_gained": [
+                "Cyber Awareness",
+                "Security Fundamentals",
+                "Digital Safety Awareness"
+            ]
+        }
+    ],
+    "conference_experience": [
+        {
+            "event": "National Cybersecurity Conclave",
+            "location": "NIT Calicut, Kerala",
+            "participation_type": "Attendee",
+            "activities": [
+                "Conference Sessions",
+                "Workshops",
+                "Industry Interaction",
+                "Professional Networking"
+            ],
+            "outcomes": [
+                "Industry Exposure",
+                "Cyber Security Awareness",
+                "Professional Networking"
+            ]
+        }
+    ],
+    "open_source_and_community": [
+        {
+            "type": "Issue Reporting",
+            "platform": "GitHub",
+            "description": "Reported issues encountered while working with Gemini SDK and Gemini Live systems during project development.",
+            "contributions": [
+                "Issue Reproduction",
+                "Developer Feedback",
+                "SDK Testing",
+                "Real-World Usage Feedback"
+            ]
+        }
+    ],
+    "learning_milestones": [
+        {
+            "milestone": "First AI/ML Internship",
+            "year": 2025,
+            "organization": "Edunet Foundation"
+        },
+        {
+            "milestone": "First Real Client Project",
+            "year": 2026,
+            "organization": "Elverve"
+        },
+        {
+            "milestone": "First Voice AI Application",
+            "year": 2026,
+            "project": "Hospital Voice AI Assistant"
+        },
+        {
+            "milestone": "First Telephony-Based AI System",
+            "year": 2026,
+            "project": "Hospital Voice AI Assistant"
+        },
+        {
+            "milestone": "First Generative UI Project",
+            "year": 2026
+        },
+        {
+            "milestone": "First Multi-Agent Experiment",
+            "year": 2026
+        }
+    ],
+    "experience_summary": {
+        "years_of_ai_exposure": "Approximately 2+ years",
+        "specializations": [
+            "Voice AI",
+            "Agentic AI",
+            "Context Engineering",
+            "Prompt Engineering",
+            "Real-Time AI Systems"
+        ],
+        "real_world_experience": [
+            "Client Projects",
+            "Voice AI Applications",
+            "Agentic AI Systems",
+            "Telephony Integration",
+            "Generative UI"
+        ]
+    }
+}

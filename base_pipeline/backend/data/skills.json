@@ -1,0 +1,288 @@
+{
+    "core_strengths": [
+        "Agentic AI",
+        "Voice AI",
+        "Context Engineering",
+        "Prompt Engineering",
+        "LLM Applications",
+        "Generative UI",
+        "Function Calling",
+        "Tool Calling",
+        "Real-Time AI Systems",
+        "AI Application Development"
+    ],
+    "programming_languages": {
+        "python": {
+            "level": "Intermediate",
+            "usage": [
+                "AI Applications",
+                "Voice AI Systems",
+                "FastAPI Applications",
+                "Flask Applications",
+                "RAG Systems",
+                "Tool Calling",
+                "Function Calling",
+                "Agent Development"
+            ]
+        },
+        "java": {
+            "level": "Intermediate",
+            "usage": [
+                "DSA",
+                "Academic Projects",
+                "Problem Solving"
+            ]
+        },
+        "javascript": {
+            "level": "Beginner to Intermediate",
+            "usage": [
+                "Frontend Development",
+                "Generative UI",
+                "Web Applications"
+            ]
+        }
+    },
+    "frontend": {
+        "html": {
+            "level": "Intermediate"
+        },
+        "css": {
+            "level": "Intermediate"
+        },
+        "javascript": {
+            "level": "Beginner"
+        },
+        "bootstrap": {
+            "level": "Beginner to Intermediate"
+        },
+        "threejs": {
+            "level": "Beginner",
+            "usage": [
+                "VRM Avatars",
+                "3D Character Rendering",
+                "Lip Sync Integration",
+                "Animation Systems"
+            ]
+        }
+    },
+    "backend": {
+        "fastapi": {
+            "level": "Beginner",
+            "usage": [
+                "Voice AI Systems",
+                "Real-Time APIs",
+                "WebSocket Applications",
+                "AI Services"
+            ]
+        },
+        "flask": {
+            "level": "Intermediate",
+            "usage": [
+                "AI Chatbots",
+                "REST APIs",
+                "Personal Projects"
+            ]
+        },
+        "websockets": {
+            "level": "Beginner",
+            "usage": [
+                "Voice Streaming",
+                "Real-Time Communication",
+                "Speech-to-Speech Applications"
+            ]
+        },
+        "sqlalchemy": {
+            "level": "Beginner to Intermediate",
+            "usage": [
+                "Database Operations",
+                "Chat History Management",
+                "Conversation Storage"
+            ]
+        }
+    },
+    "databases": {
+        "mysql": {
+            "level": "Intermediate",
+            "usage": [
+                "Conversation History",
+                "Application Data Storage"
+            ]
+        },
+        "sqlite": {
+            "level": "Intermediate"
+        },
+        "mongodb": {
+            "level": "Beginner to Intermediate"
+        },
+        "supabase": {
+            "level": "Beginner"
+        }
+    },
+    "cloud_and_platforms": {
+        "azure": {
+            "level": "Learning",
+            "areas": [
+                "Azure AI Services",
+                "Azure AI Foundry"
+            ]
+        },
+        "railway": {
+            "level": "Intermediate",
+            "usage": [
+                "Project Deployment",
+                "AI Application Hosting"
+            ]
+        },
+        "huggingface": {
+            "level": "Beginner",
+            "usage": [
+                "Model Deployment",
+                "Internship Project Deployment"
+            ]
+        }
+    },
+    "llm_platforms_and_models": {
+        "gemini": {
+            "level": "Advanced",
+            "usage": [
+                "Chat Applications",
+                "Voice AI",
+                "Function Calling",
+                "Generative UI",
+                "RAG Systems"
+            ]
+        },
+        "gemini_live": {
+            "level": "Advanced",
+            "usage": [
+                "Speech-to-Speech Systems",
+                "Voice Agents",
+                "Hospital Voice AI Assistant",
+                "English Tutor Companion"
+            ]
+        },
+        "litellm": {
+            "level": "Intermediate"
+        },
+        "ollama": {
+            "level": "Intermediate"
+        },
+        "openrouter": {
+            "level": "Intermediate"
+        },
+        "grok_sdk": {
+            "level": "Beginner to Intermediate"
+        },
+        "openai_realtime": {
+            "level": "Explored"
+        },
+        "personaplex": {
+            "level": "Explored"
+        }
+    },
+    "agent_frameworks": {
+        "crewai": {
+            "level": "Beginner",
+            "usage": [
+                "Multi-Agent Systems",
+                "Agent Orchestration"
+            ]
+        },
+        "microsoft_agent_framework": {
+            "level": "Learning and Experimentation"
+        },
+        "pipecat": {
+            "level": "Intermediate",
+            "usage": [
+                "Voice AI Systems",
+                "Speech-to-Speech Applications",
+                "Real-Time Communication"
+            ]
+        }
+    },
+    "ai_concepts": {
+        "rag": {
+            "level": "Intermediate",
+            "experience": [
+                "ChromaDB",
+                "Document Retrieval",
+                "Knowledge Retrieval"
+            ]
+        },
+        "vectorless_retrieval": {
+            "level": "Experimented"
+        },
+        "tool_calling": {
+            "level": "Intermediate"
+        },
+        "function_calling": {
+            "level": "Intermediate"
+        },
+        "multi_agent_systems": {
+            "level": "Intermediate"
+        },
+        "agent_orchestration": {
+            "level": "Intermediate"
+        }
+    },
+    "context_engineering": {
+        "context_management": true,
+        "context_summarization": true,
+        "context_slicing": true,
+        "memory_management": true,
+        "conversation_memory": true,
+        "context_window_optimization": true,
+        "real_world_usage": [
+            "Hospital Voice AI Assistant",
+            "Long-running Voice Conversations",
+            "Token Optimization"
+        ]
+    },
+    "prompt_engineering": {
+        "zero_shot": true,
+        "few_shot": true,
+        "modular_prompting": true,
+        "dynamic_prompting": true,
+        "xml_based_prompting": true,
+        "real_world_usage": [
+            "Voice AI Systems",
+            "Agent Workflows",
+            "Tool Calling Systems"
+        ]
+    },
+    "voice_ai": {
+        "speech_to_speech": true,
+        "voice_activity_detection": true,
+        "telephony_integration": true,
+        "websocket_streaming": true,
+        "real_time_audio_streaming": true,
+        "projects": [
+            "Hospital Voice AI Assistant",
+            "English Tutor Companion"
+        ]
+    },
+    "optimization_and_architecture": {
+        "token_optimization": true,
+        "fsm_orchestration": true,
+        "stateless_agent_architecture": true,
+        "latency_reduction": true,
+        "experience": [
+            "Hospital Voice AI Assistant"
+        ]
+    },
+    "cybersecurity": {
+        "kali_linux": "Basic",
+        "nmap": "Basic",
+        "wireshark": "Basic",
+        "background": "Cyber Security Undergraduate"
+    },
+    "currently_learning": [
+        "AI-102",
+        "Azure AI Foundry",
+        "Advanced Agentic AI",
+        "MCP",
+        "Agent Memory Systems",
+        "Evaluation Systems",
+        "Knowledge Graph RAG"
+    ]
+}

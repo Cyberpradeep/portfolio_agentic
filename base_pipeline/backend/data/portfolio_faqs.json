@@ -1,0 +1,100 @@
+{
+    "personal_and_career": [
+        {
+            "id": "introduce_yourself",
+            "question": "Tell me about yourself",
+            "answer": "Hi, I'm Pradeep Selladurai, a Cyber Security undergraduate at Muthayammal Engineering College graduating in 2027. My primary focus has shifted toward AI Engineering, where I work on Agentic AI systems, Voice AI applications, Context Engineering, and Generative AI solutions. Through internships, personal projects, and client-facing work, I have built speech-to-speech systems, telephony-integrated AI assistants, RAG-powered applications, and multi-agent workflows."
+        },
+        {
+            "id": "career_goal",
+            "question": "What are your career goals?",
+            "answer": "My goal is to become an AI Engineer specializing in Agentic AI, Voice AI, Context Engineering, and real-time AI systems. I want to build intelligent AI products that solve practical problems and eventually contribute to advanced AI architectures and production-grade AI systems."
+        },
+        {
+            "id": "why_ai",
+            "question": "Why did you move from Cyber Security to AI?",
+            "answer": "I initially chose Cyber Security after higher secondary education because it seemed like an exciting and growing field. During my second year of engineering I became increasingly interested in Artificial Intelligence. In my third year I joined a company focused on Agentic AI and worked on real-world AI projects. That experience exposed me to practical AI development and motivated me to focus my career on AI Engineering."
+        },
+        {
+            "id": "what_makes_you_different",
+            "question": "What makes you different from other students?",
+            "answer": "I focus heavily on practical implementation. Beyond coursework and certifications, I have worked on client-facing AI projects, voice AI systems, telephony-integrated assistants, context engineering challenges, and agentic workflows. I enjoy learning through building, debugging, experimenting, and solving real-world problems."
+        }
+    ],
+    
+    "skills_and_expertise": [
+            {
+                "id": "strongest_skill",
+                "question": "What is your strongest technical area?",
+                "answer": "My strongest area is the combination of Voice AI, Agentic AI, and Context Engineering. I have worked on speech-to-speech systems, real-time conversational AI, tool-calling architectures, token optimization, context management, and agent orchestration."
+            },
+            {
+                "id": "what_is_context_engineering",
+                "question": "What is Context Engineering?",
+                "answer": "Context Engineering is the process of controlling what information is provided to an LLM so that it can perform effectively. It includes context management, context summarization, context slicing, memory design, retrieval strategies, and token optimization. I explored these concepts while building real-time voice AI systems."
+            },
+            {
+                "id": "prompting_techniques",
+                "question": "What prompting techniques have you used?",
+                "answer": "I have experimented with zero-shot prompting, few-shot prompting, modular prompting, dynamic prompting, and XML-based prompting. I have used these techniques in voice AI systems, conversational agents, and tool-calling workflows."
+            },
+            {
+                "id": "agentic_ai",
+                "question": "What is Agentic AI to you?",
+                "answer": "I view Agentic AI as building systems that can reason, use tools, retrieve information, manage memory, and execute workflows rather than simply generating responses. I have explored these concepts through CrewAI, Microsoft Agent Framework, function calling, tool calling, and workflow orchestration."
+            }
+        ],
+
+        "hospital_project": [
+            {
+                "id": "hospital_project_overview",
+                "question": "Tell me about your hospital voice AI project",
+                "answer": "The Hospital Voice AI Assistant is a speech-to-speech appointment booking assistant that supports booking, cancellation, updating, and viewing appointments. It was built using Gemini Live, Pipecat, FastAPI, WebSockets, Exotel, and Generative UI."
+            },
+            {
+                "id": "hospital_project_challenge",
+                "question": "What was the hardest challenge in the hospital project?",
+                "answer": "One of the biggest challenges was controlling token usage and managing context growth in long-running voice conversations. As conversations became longer, context size increased, affecting latency and cost."
+            },
+            {
+                "id": "hospital_project_solution",
+                "question": "How did you solve token usage problems?",
+                "answer": "I explored multiple approaches including context summarization, context slicing, FSM-based orchestration, prompt optimization, and state management. These techniques helped reduce unnecessary context while preserving important information."
+            },
+            {
+                "id": "why_gemini_live",
+                "question": "Why did you use Gemini Live?",
+                "answer": "Gemini Live provides real-time speech-to-speech interaction, making it suitable for building conversational voice assistants. It allowed us to create natural voice interactions without relying on separate speech recognition and text-to-speech pipelines."
+            }
+        ],
+
+        "experience": [
+            {
+                "id": "elverve_experience",
+                "question": "What did you learn at Elverve?",
+                "answer": "At Elverve I gained hands-on experience in Agentic AI, Voice AI, Prompt Engineering, Context Engineering, and client-facing AI projects. I also improved my ability to read technical documentation, research solutions independently, and debug complex systems."
+            },
+            {
+                "id": "client_projects",
+                "question": "Have you worked on real-world projects?",
+                "answer": "Yes. Through my internship at Elverve, I worked on client-oriented AI projects involving voice agents, telephony integration, speech-to-speech systems, and conversational AI applications."
+            },
+            {
+                "id": "first_industry_experience",
+                "question": "What was your first industry experience?",
+                "answer": "My first industry experience was a one-month AI/ML internship with Edunet Foundation, where I learned machine learning fundamentals and built an Email Spam Detection system."
+            }
+        ],
+        "future": [
+            {
+                "id": "future_goals",
+                "question": "What do you want to achieve before graduation?",
+                "answer": "Before graduation, I want to master Agentic AI architectures, improve my Voice AI expertise, build production-grade AI systems, complete AI-102, explore MCP, and create innovative AI-powered products."
+            },
+            {
+                "id": "dream_role",
+                "question": "What role are you targeting?",
+                "answer": "I am primarily targeting AI Engineer, Generative AI Engineer, Agentic AI Engineer, and Applied AI Engineer roles."
+            }
+        ] 
+}
