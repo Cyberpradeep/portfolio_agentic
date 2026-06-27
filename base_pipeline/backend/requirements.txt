@@ -1,5 +1,4 @@
-fastapi
-uvicorn
+fastapi[standard]
 python-dotenv
 sse-starlette
 pipecat-ai[google,silero]
