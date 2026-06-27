@@ -13,6 +13,7 @@
                 "Speech-to-Speech Systems"
             ],
             "summary": "A real-time hospital appointment booking assistant that allows users to interact through natural voice conversations for booking, cancelling, updating and viewing appointments.",
+            "github_url":"https://github.com/Cyberpradeep/Conversational_ai_for_appointment_booking.git",
             "problem_statement": "Traditional hospital appointment systems require manual interaction, waiting times and complex navigation. The goal was to create a natural voice-based assistant that could handle appointment workflows through both web and phone channels.",
             "my_role": [
                 "Voice AI Development",
@@ -117,6 +118,7 @@
                 "Conversational AI"
             ],
             "summary": "A multilingual voice-based AI companion capable of acting as a tutor, mentor, companion and conversational partner.",
+            "github_url":"https://github.com/Cyberpradeep/AI_English_Tutor_Conversational_AI.git",
             "problem_statement": "Many learners struggle to practice spoken English consistently. The goal was to provide a natural conversational companion available anytime.",
             "my_role": [
                 "Full Stack Development",
@@ -238,6 +240,7 @@
             "type": "Personal Project",
             "status": "Completed",
             "summary": "An LLM-powered code review assistant capable of reviewing uploaded or pasted source code.",
+            "github_url":"https://github.com/Cyberpradeep/GenAI_Coaach_ChatBot.git",
             "technologies": [
                 "Gemini",
                 "Python"
@@ -258,6 +261,7 @@
                 "College Project"
             ],
             "summary": "A meal pre-ordering platform allowing students to order food before reaching the canteen.",
+            "github_url":"https://github.com/Cyberpradeep/canteen_preorder_app.git",
             "my_contributions": [
                 "Backend Development",
                 "Authentication",
@@ -285,6 +289,7 @@
             "status": "Completed",
             "organization": "Edunet Foundation",
             "summary": "Machine Learning-based email spam classification system.",
+            "github_url":"https://github.com/Cyberpradeep/Email_Spam_checker.git",
             "technologies": [
                 "Python",
                 "Machine Learning",

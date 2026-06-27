@@ -6,12 +6,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pradeep Agentic Portfolio - Base Pipeline</title>
     <link
+    
         href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/static/css/style.css?v=2" />
+    <link rel="stylesheet" href="/static/css/style.css?v=16" />
 </head>
 
 <body>
+    <!-- ── Intro Overlay ── -->
+    <div id="introOverlay">
+        <!-- Screen 1: Vanakkam -->
+        <div id="introScreen1">
+            <div id="introGreet"></div>
+        </div>
+        <!-- Screen 2: Name + Subtitle -->
+        <div id="introScreen2">
+            <div id="introName"></div>
+            <div id="introSub"></div>
+            <div id="introCursor"></div>
+        </div>
+    </div>
+
     <div class="app">
         <header class="topbar">
             <div class="brand">
@@ -36,7 +51,13 @@
                     </svg>
                     <span class="sr-only">GitHub</span>
                 </a>
-                <a class="icon-btn" href="#" aria-label="Download resume" title="Resume">
+                <a class="icon-btn" href="https://www.reddit.com/user/Beginning_Race8551/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button" target="_blank" rel="noopener noreferrer" aria-label="Reddit profile" title="Reddit">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" class="is-fill">
+                        <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+                    </svg>
+                    <span class="sr-only">Reddit</span>
+                </a>
+                <a class="icon-btn" href="/static/PREADEEP.pdf" target="_blank" aria-label="Download resume" title="Resume">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M6 2h7l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm6 1.5V8h4.5" />
                         <path d="M8 12h8M8 15h8M8 18h5" />
@@ -76,7 +97,8 @@
                 </div>
             </div>
 
-            <div id="messageLayer" class="message-layer"></div>
+            <div id="convLeft" class="conv-card user"></div>
+            <div id="convRight" class="conv-card assistant"></div>
 
             <div id="avatarState" class="avatar-state">● Online</div>
 
@@ -109,7 +131,77 @@
     <script src="/static/js/media-handler.js"></script>
     <script src="/static/js/gemini-client.js"></script>
     <script type="module" src="/static/js/avatar.js"></script>
-    <script src="/static/js/main.js"></script>
+    <script src="/static/js/main.js?v=16"></script>
+
+    <!-- ── Intro Animation ── -->
+    <script>
+        (function () {
+            const overlay   = document.getElementById('introOverlay');
+            const screen1   = document.getElementById('introScreen1');
+            const screen2   = document.getElementById('introScreen2');
+            const greetEl   = document.getElementById('introGreet');
+            const nameEl    = document.getElementById('introName');
+            const subEl     = document.getElementById('introSub');
+            const cursor    = document.getElementById('introCursor');
+            const app       = document.querySelector('.app');
+
+            const GREET_TEXT = 'Vanakkam';
+            const NAME_TEXT  = 'Pradeep Selladurai';
+            const SUB_TEXT   = 'Ready to talk with me?';
+
+            // Hide app and screen2 initially
+            app.style.opacity    = '0';
+            app.style.transform  = 'translateY(18px)';
+            app.style.transition = 'opacity 0.8s ease, transform 0.8s ease';
+            screen2.style.opacity    = '0';
+            screen2.style.transition = 'opacity 0.5s ease';
+
+            function typeChar(el, text, idx, done) {
+                if (idx >= text.length) { done && done(); return; }
+                el.textContent += text[idx];
+                setTimeout(() => typeChar(el, text, idx + 1, done), 72);
+            }
+
+            // ── Screen 1: type Vanakkam, hold, then fade out ──
+            setTimeout(() => {
+                typeChar(greetEl, GREET_TEXT, 0, () => {
+                    // Hold for 800ms then fade Screen 1 out
+                    setTimeout(() => {
+                        screen1.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                        screen1.style.opacity    = '0';
+                        screen1.style.transform  = 'translateY(-20px)';
+
+                        // ── Screen 2: fade in and start typing name ──
+                        setTimeout(() => {
+                            screen1.style.display = 'none';
+                            screen2.style.opacity = '1';
+
+                            setTimeout(() => {
+                                typeChar(nameEl, NAME_TEXT, 0, () => {
+                                    setTimeout(() => {
+                                        cursor.style.opacity = '0';
+                                        subEl.style.opacity  = '1';
+                                        typeChar(subEl, SUB_TEXT, 0, () => {
+                                            // Hold then reveal portfolio
+                                            setTimeout(() => {
+                                                overlay.style.transform = 'translateY(-100%)';
+                                                overlay.style.opacity   = '0';
+                                                setTimeout(() => {
+                                                    app.style.opacity   = '1';
+                                                    app.style.transform = 'translateY(0)';
+                                                    setTimeout(() => overlay.remove(), 900);
+                                                }, 300);
+                                            }, 900);
+                                        });
+                                    }, 400);
+                                });
+                            }, 200);
+                        }, 550);
+                    }, 800);
+                });
+            }, 200);
+        })();
+    </script>
 </body>
 
 </html>

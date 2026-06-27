@@ -24,7 +24,8 @@
                 "Responsible AI",
                 "Azure AI Services"
             ],
-            "importance": "This certification provided foundational knowledge about AI concepts and Microsoft AI services."
+            "importance": "This certification provided foundational knowledge about AI concepts and Microsoft AI services.",
+            "verify_url": "https://learn.microsoft.com/api/credentials/share/en-us/PRADEEPS-7652/8B547C692765F791?sharingId=FB2098054B69487C"
         },
         {
             "name": "GitHub Foundations",
@@ -39,7 +40,8 @@
                 "Repositories",
                 "Branching",
                 "Pull Requests"
-            ]
+            ],
+            "verify_url": "https://learn.microsoft.com/api/credentials/share/en-us/PRADEEPS-7652/CED12C74C0ED82A7?sharingId=FB2098054B69487C"
         },
         {
             "name": "Network Fundamentals",

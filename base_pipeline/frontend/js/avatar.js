@@ -410,8 +410,8 @@ function applyRestPose(elapsed) {
     }
     resetPose();
     const sway = Math.sin(elapsed * 0.8) * 0.02;
-    applyBoneOffset(rig.lUpper, 0.18 + sway, 0, 0.35);
-    applyBoneOffset(rig.rUpper, 0.18 - sway, 0, -0.35);
+    applyBoneOffset(rig.lUpper, 0.18 + sway, 0, 1.5);
+    applyBoneOffset(rig.rUpper, 0.18 - sway, 0, -1.5);
     applyBoneOffset(rig.lLower, 0.22, 0, 0.12);
     applyBoneOffset(rig.rLower, 0.22, 0, -0.12);
     applyBoneOffset(rig.lHand, 0.05, 0, 0.04);
@@ -420,16 +420,14 @@ function applyRestPose(elapsed) {
     applyBoneOffset(rig.neck, Math.sin(elapsed * 0.7) * 0.01, 0, 0);
 }
 
-// --- Speaking gesture system ---
-// Defines a set of natural speaking gesture "phrases" the avatar cycles through.
-// Each phrase targets specific arm/hand poses to mimic real conversational gestures.
+
 const GESTURE_PHRASES = [
     // Open hands, both arms slightly raised and spread — "explaining something"
     {
         name: "explain",
         duration: 3.2,
-        lUpper: { x: -0.55, y: 0.0, z: 0.55 },
-        rUpper: { x: -0.55, y: 0.0, z: -0.55 },
+        lUpper: { x: -0.3, y: 0.0, z: 1.2 },
+        rUpper: { x: -0.3, y: 0.0, z: -1.2 },
         lLower: { x: 0.65, y: 0.0, z: 0.0 },
         rLower: { x: 0.65, y: 0.0, z: 0.0 },
         lHand: { x: -0.1, y: 0.15, z: 0.0 },
@@ -440,8 +438,8 @@ const GESTURE_PHRASES = [
     {
         name: "point",
         duration: 2.4,
-        lUpper: { x: 0.25, y: 0.0, z: 0.42 },
-        rUpper: { x: -0.62, y: 0.08, z: -0.28 },
+        lUpper: { x: 0.1, y: 0.0, z: 1.5 },
+        rUpper: { x: -0.5, y: 0.08, z: -0.4 },
         lLower: { x: 0.30, y: 0.0, z: 0.10 },
         rLower: { x: 0.72, y: 0.05, z: 0.0 },
         lHand: { x: 0.0, y: 0.0, z: 0.0 },
@@ -452,8 +450,8 @@ const GESTURE_PHRASES = [
     {
         name: "open",
         duration: 2.8,
-        lUpper: { x: -0.72, y: 0.0, z: 0.72 },
-        rUpper: { x: -0.72, y: 0.0, z: -0.72 },
+        lUpper: { x: -0.4, y: 0.0, z: 0.9 },
+        rUpper: { x: -0.4, y: 0.0, z: -0.9 },
         lLower: { x: 0.5, y: 0.0, z: 0.0 },
         rLower: { x: 0.5, y: 0.0, z: 0.0 },
         lHand: { x: -0.3, y: 0.2, z: 0.0 },
@@ -464,8 +462,8 @@ const GESTURE_PHRASES = [
     {
         name: "leftEmphasis",
         duration: 2.6,
-        lUpper: { x: -0.5, y: 0.05, z: 0.38 },
-        rUpper: { x: 0.22, y: 0.0, z: -0.42 },
+        lUpper: { x: -0.4, y: 0.05, z: 0.9 },
+        rUpper: { x: 0.1, y: 0.0, z: -1.5 },
         lLower: { x: 0.68, y: 0.05, z: 0.0 },
         rLower: { x: 0.28, y: 0.0, z: -0.08 },
         lHand: { x: -0.15, y: 0.2, z: 0.0 },
@@ -476,8 +474,8 @@ const GESTURE_PHRASES = [
     {
         name: "sincere",
         duration: 2.2,
-        lUpper: { x: -0.2, y: 0.0, z: 0.32 },
-        rUpper: { x: -0.2, y: 0.0, z: -0.32 },
+        lUpper: { x: -0.1, y: 0.0, z: 1.35 },
+        rUpper: { x: -0.1, y: 0.0, z: -1.35 },
         lLower: { x: 0.9, y: 0.0, z: 0.0 },
         rLower: { x: 0.9, y: 0.0, z: 0.0 },
         lHand: { x: 0.0, y: 0.1, z: 0.0 },
