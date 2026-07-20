@@ -12,7 +12,7 @@ This milestone implements the conversation skeleton only:
 2. Install dependencies:
 
 ```bash
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 ```
 
 3. Create `.env` from `.env.example` and set `GEMINI_API_KEY`.

@@ -2,7 +2,7 @@ services:
   - type: web
     name: agentic-portfolio
     env: python
-    buildCommand: "pip install -r base_pipeline/backend/requirements.txt"
+    buildCommand: "pip install -r base_pipeline/requirements.txt"
     startCommand: "cd base_pipeline/backend && uvicorn app:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: GEMINI_API_KEY
