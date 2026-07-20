@@ -65,7 +65,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT / "frontend"
 MODEL_PATH = ROOT.parent / "examples" / "3d_model_testing" / "biped_robot.glb"
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY","")
 MODEL = os.getenv("MODEL", "gemini-3.1-flash-live-preview")
 VOICE_ID = os.getenv("VOICE_ID", "Puck")
 HOST = os.getenv("HOST", "0.0.0.0")
@@ -1084,7 +1084,7 @@ async def run_session(websocket: WebSocket):
     )
 
     llm = GeminiLiveLLMService(
-        api_key=GEMINI_API_KEY,
+        api_key="AIzaSyC294pqvbbWExR8unjCxhvu6MjOVGt1q4Y",
         model=MODEL,
         system_instruction=SYSTEM_INSTRUCTION,
         tools=tools,

@@ -1,28 +1,13 @@
-# Environments
+# Ignore everything by default so only the base_pipeline tree is considered.
+*
+
+# Ignore environment files everywhere.
 .env
-.venv/
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+**/.env
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+# Keep the ignore file itself.
+!/.gitignore
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
-
-# Custom
-examples/
+# Allow the base_pipeline project files.
+!/base_pipeline/
+!/base_pipeline/**
