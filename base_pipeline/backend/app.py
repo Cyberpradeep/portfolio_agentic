@@ -59,13 +59,16 @@ from email.mime.application import MIMEApplication
 
 
 
-load_dotenv()
-
-ROOT = Path(__file__).resolve().parents[1]
+BASE_DIR = Path(__file__).resolve().parent
+ROOT = BASE_DIR.parent
 FRONTEND_DIR = ROOT / "frontend"
-MODEL_PATH = ROOT.parent / "examples" / "3d_model_testing" / "biped_robot.glb"
+MODEL_PATH = FRONTEND_DIR / "model" / "portfolio.vrm"
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY","")
+# Load .env from backend folder or root folder
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(ROOT / ".env")
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MODEL = os.getenv("MODEL", "gemini-3.1-flash-live-preview")
 VOICE_ID = os.getenv("VOICE_ID", "Puck")
 HOST = os.getenv("HOST", "0.0.0.0")
@@ -419,7 +422,7 @@ Speak in tanglish default
 """
 
 
-DATA_DIR = Path("data")
+DATA_DIR = BASE_DIR / "data"
 
 
 def load_json(filename):
@@ -663,10 +666,10 @@ async def send_resume(p: FunctionCallParams):
         await p.result_callback({"success": False, "message": "User email is missing."})
         return
 
-    sender_email = "pradeepnaveen930@gmail.com"
-    sender_password = "kqrvkscqgqqxhfyb"
+    sender_email = os.getenv("SENDER_EMAIL", "pradeepnaveen930@gmail.com")
+    sender_password = os.getenv("SENDER_PASSWORD", "")
     receiver_email = user_email
-    resume_path = r"D:\portfolio_agentic\base_pipeline\backend\PREADEEP.pdf"
+    resume_path = BASE_DIR / "PREADEEP.pdf"
 
     msg = MIMEMultipart()
     msg["From"] = sender_email
@@ -1084,7 +1087,7 @@ async def run_session(websocket: WebSocket):
     )
 
     llm = GeminiLiveLLMService(
-        api_key="AIzaSyC294pqvbbWExR8unjCxhvu6MjOVGt1q4Y",
+        api_key=GEMINI_API_KEY,
         model=MODEL,
         system_instruction=SYSTEM_INSTRUCTION,
         tools=tools,

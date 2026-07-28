@@ -7,6 +7,8 @@
 
 # Keep the ignore file itself.
 !/.gitignore
+!/Procfile
+!/requirements.txt
 
 # Allow the base_pipeline project files.
 !/base_pipeline/
