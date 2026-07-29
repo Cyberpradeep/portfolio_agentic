@@ -8,6 +8,10 @@ class GeminiClient {
     }
 
     connect() {
+        if (this.websocket && (this.websocket.readyState === WebSocket.OPEN || this.websocket.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
+
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${protocol}//${window.location.host}/audio`;
 
@@ -55,5 +59,9 @@ class GeminiClient {
 
     isConnected() {
         return this.websocket && this.websocket.readyState === WebSocket.OPEN;
+    }
+
+    isConnectingOrConnected() {
+        return this.websocket && (this.websocket.readyState === WebSocket.OPEN || this.websocket.readyState === WebSocket.CONNECTING);
     }
 }

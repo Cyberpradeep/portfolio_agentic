@@ -1221,7 +1221,8 @@ async def run_session(websocket: WebSocket):
         print(f"[SESSION_ERROR] {exc}")
         await send_transport_event(websocket, {"type": "error", "message": str(exc)})
     finally:
-        current_task = None
+        if current_task is task:
+            current_task = None
         print("[SESSION] run_session finished")
         await send_transport_event(websocket, {"type": "status", "state": "disconnected"})
 

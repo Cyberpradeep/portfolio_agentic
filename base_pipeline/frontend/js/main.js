@@ -816,7 +816,7 @@ async function sendText() {
 async function ensureConnection() {
     initAvatar();
 
-    if (geminiClient.isConnected()) {
+    if (geminiClient.isConnectingOrConnected()) {
         ensureEventsStream();
         return;
     }
