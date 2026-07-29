@@ -41,13 +41,13 @@ This project is an interactive 3D digital twin portfolio. Instead of a tradition
   <tr>
     <td width="50%" align="center">
       <!-- 📸 MEDIA SECTION 2: 3D PROJECT ORBIT CARDS -->
-      <img src="frontend/assets/orbit_cards.png" alt="3D Project Orbit Cards" width="100%" style="border-radius: 8px;" />
+      <img src="https://github.com/user-attachments/assets/d703e65c-bd2f-43c0-99f8-f930cf29726c" alt="3D Project Orbit Cards" width="100%" style="border-radius: 8px;" />
       <br />
       <sub><b>Media Section 2: 3D Project Orbit Cards</b><br />Floating project cards spawned around the 3D avatar on query.</sub>
     </td>
     <td width="50%" align="center">
       <!-- 📸 MEDIA SECTION 3: SKILLS BENTO GRID & FLOATING ICONS -->
-      <img src="frontend/assets/skills_bento.png" alt="Skills Bento Grid" width="100%" style="border-radius: 8px;" />
+      <img src="https://github.com/user-attachments/assets/d1f00ce7-670b-4a06-bfaa-bce9b29820f9" alt="Skills Bento Grid" width="100%" style="border-radius: 8px;" />
       <br />
       <sub><b>Media Section 3: Skills Bento & Ambient Badges</b><br />Categorized skill panel with floating devicon badges.</sub>
     </td>
@@ -55,16 +55,16 @@ This project is an interactive 3D digital twin portfolio. Instead of a tradition
   <tr>
     <td width="50%" align="center">
       <!-- 📸 MEDIA SECTION 4: CAREER TIMELINE & CERTIFICATIONS -->
-      <img src="frontend/assets/timeline_certs.png" alt="Career Timeline and Certifications" width="100%" style="border-radius: 8px;" />
+      <img src="https://github.com/user-attachments/assets/2a8c13ce-7a0a-4332-9266-46fef87e7cd3" alt="Career Timeline and Certifications" width="100%" style="border-radius: 8px;" />
       <br />
       <sub><b>Media Section 4: Work Experience & Certifications</b><br />Structured chronological milestone view and cert grid.</sub>
     </td>
-    <td width="50%" align="center">
+    <!-- <td width="50%" align="center">
       <!-- 📸 MEDIA SECTION 5: SYSTEM ARCHITECTURE DIAGRAM -->
-      <img src="frontend/assets/architecture_diagram.png" alt="Architecture & Data Flow Diagram" width="100%" style="border-radius: 8px;" />
+      <!-- <img src="frontend/assets/architecture_diagram.png" alt="Architecture & Data Flow Diagram" width="100%" style="border-radius: 8px;" />
       <br />
       <sub><b>Media Section 5: Real-Time Audio & GenUI Pipeline</b><br />Data flow between browser, WebSocket transport, Pipecat, and Gemini.</sub>
-    </td>
+    </td> --> 
   </tr>
 </table>
 
