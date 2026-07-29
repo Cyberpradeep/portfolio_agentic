@@ -9,6 +9,7 @@
 !/.gitignore
 !/Procfile
 !/requirements.txt
+!/README.md
 
 # Allow the base_pipeline project files.
 !/base_pipeline/

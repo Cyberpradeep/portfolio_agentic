@@ -1,31 +1,18 @@
-# Base Pipeline (Pipecat + Gemini Live)
+# Base Pipeline — 3D Digital Twin Backend & Frontend
 
-This milestone implements the conversation skeleton only:
-- Text + audio conversation
-- Pipecat + Gemini Live backend
-- Manga/comic style UI shell
-- GLB avatar with state transitions (idle, listening, thinking, speaking)
+This directory contains the primary codebase for the **3D Digital Twin & Voice AI Portfolio**.
 
-## Run
+For full project documentation, architecture diagrams, and deployment instructions, refer to the [Root README.md](../README.md).
 
-1. Create and activate a virtual environment.
-2. Install dependencies:
+## Quick Start
 
 ```bash
+# 1. Install dependencies
 pip install -r requirements.txt
-```
 
-3. Create `.env` from `.env.example` and set `GEMINI_API_KEY`.
-4. Start the server:
+# 2. Configure environment variables in .env
+# GEMINI_API_KEY="your_api_key"
 
-```bash
+# 3. Start server
 python backend/app.py
 ```
-
-5. Open `http://127.0.0.1:8000`.
-
-## Notes
-
-- This build is intentionally tool-call free.
-- Text messages use `POST /text` to inject `InputTextRawFrame` into the active Pipecat task.
-- Voice capture streams raw PCM to `WebSocket /audio`.
