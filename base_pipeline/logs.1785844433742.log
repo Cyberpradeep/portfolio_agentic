@@ -1,0 +1,727 @@
+2026-08-04T11:53:03.309392055Z [inf]  Starting Container
+2026-08-04T11:53:05.140968347Z [err]  2026-08-04 11:53:04.198 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:05.412361804Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:05.413323028Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:05.413326188Z [err]      sys.exit(main())
+2026-08-04T11:53:05.413329038Z [err]               ~~~~^^
+2026-08-04T11:53:05.413388297Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:05.413391847Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:05.413394727Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:05.413397917Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:05.413400977Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:05.413403917Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:05.413406657Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:05.413441177Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:05.413444457Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:05.413447347Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:05.413449757Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:05.413452867Z [err]      run(
+2026-08-04T11:53:05.413455657Z [err]      ~~~^
+2026-08-04T11:53:05.413458507Z [err]          app,
+2026-08-04T11:53:05.413461517Z [err]          ^^^^
+2026-08-04T11:53:05.413464297Z [err]      ...<48 lines>...
+2026-08-04T11:53:05.413466947Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:05.413469577Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:05.413471987Z [err]      )
+2026-08-04T11:53:05.413475027Z [err]      ^
+2026-08-04T11:53:05.413477827Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:05.414748329Z [err]      config.load_app()
+2026-08-04T11:53:05.414752739Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:05.414752979Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:05.414759119Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:05.414761499Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:05.414764649Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:05.414767249Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:05.414770969Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:05.414773189Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:05.414775509Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:05.414778099Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:05.414780709Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:05.414783389Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:05.414785939Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:05.414788269Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:05.414790699Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:05.414793859Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:05.414796289Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:05.414798579Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:05.416841876Z [err]      from nltk.text import *
+2026-08-04T11:53:05.416846676Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:05.416851016Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:05.416853036Z [err]      import regex
+2026-08-04T11:53:05.416857566Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:05.416857786Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:05.416859556Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:05.416865085Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:05.416869775Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:05.416870005Z [err]      raise ImportError(
+2026-08-04T11:53:05.416872705Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:05.416878265Z [err]      ...<3 lines>...
+2026-08-04T11:53:05.416880665Z [err]      ...<3 lines>...
+2026-08-04T11:53:05.416885835Z [err]      )
+2026-08-04T11:53:05.416888575Z [err]      )
+2026-08-04T11:53:05.416891935Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:05.416896855Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:05.416899965Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:05.416902555Z [err]      import nltk
+2026-08-04T11:53:05.416905625Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:05.417379662Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:08.379112583Z [err]  2026-08-04 11:53:08.371 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:09.333911840Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:09.335436671Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:09.335440141Z [err]      sys.exit(main())
+2026-08-04T11:53:09.335442621Z [err]               ~~~~^^
+2026-08-04T11:53:09.335445861Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:09.335449201Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:09.335452281Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:09.335455551Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:09.335458981Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:09.335462431Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:09.335465551Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:09.335468691Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:09.335471651Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:09.335474571Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:09.335477571Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:09.335480681Z [err]      run(
+2026-08-04T11:53:09.335483611Z [err]      ~~~^
+2026-08-04T11:53:09.335486541Z [err]          app,
+2026-08-04T11:53:09.335489631Z [err]          ^^^^
+2026-08-04T11:53:09.335492911Z [err]      ...<48 lines>...
+2026-08-04T11:53:09.335495961Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:09.335498881Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:09.335501801Z [err]      )
+2026-08-04T11:53:09.335504701Z [err]      ^
+2026-08-04T11:53:09.335507711Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:09.336460704Z [err]      config.load_app()
+2026-08-04T11:53:09.336463704Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:09.336466854Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:09.336469434Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:09.336472024Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:09.336474644Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:09.336476994Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:09.336479234Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:09.336481854Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:09.336485074Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:09.336489014Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:09.336492494Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:09.336495954Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:09.336498964Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:09.336503804Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:09.336507024Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:09.336510644Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:09.336513774Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:09.336517114Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:09.337667557Z [err]      )
+2026-08-04T11:53:09.337676557Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:09.337676727Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:09.337685507Z [err]      from nltk.text import *
+2026-08-04T11:53:09.337688177Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:09.337693177Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:09.337695657Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:09.337703287Z [err]      import regex
+2026-08-04T11:53:09.337703427Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:09.337712617Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:09.337712957Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:09.337721897Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:09.337722337Z [err]      raise ImportError(
+2026-08-04T11:53:09.337729067Z [err]      ...<3 lines>...
+2026-08-04T11:53:09.337730087Z [err]      ...<3 lines>...
+2026-08-04T11:53:09.337733717Z [err]      )
+2026-08-04T11:53:09.337737737Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:09.337740337Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:09.337743137Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:09.337747737Z [err]      import nltk
+2026-08-04T11:53:09.338498281Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:11.988153265Z [err]  2026-08-04 11:53:11.987 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:13.010991551Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:13.011005690Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:13.011011500Z [err]      sys.exit(main())
+2026-08-04T11:53:13.011016270Z [err]               ~~~~^^
+2026-08-04T11:53:13.011021000Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:13.011026170Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:13.011031180Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:13.011047990Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:13.011053170Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:13.011058030Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:13.011063070Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:13.011067910Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:13.011072290Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:13.011077000Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:13.011081250Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:13.011085920Z [err]      run(
+2026-08-04T11:53:13.011089880Z [err]      ~~~^
+2026-08-04T11:53:13.011094720Z [err]          app,
+2026-08-04T11:53:13.011099540Z [err]          ^^^^
+2026-08-04T11:53:13.011104800Z [err]      ...<48 lines>...
+2026-08-04T11:53:13.011109540Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:13.011113960Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:13.011118570Z [err]      )
+2026-08-04T11:53:13.011123850Z [err]      ^
+2026-08-04T11:53:13.011128470Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:13.014960035Z [err]      config.load_app()
+2026-08-04T11:53:13.014966955Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:13.014970705Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:13.014973985Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:13.014977555Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:13.014981185Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:13.014986105Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:13.014989385Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:13.014992615Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:13.014996025Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:13.014999455Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:13.015002655Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:13.015006055Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:13.015009635Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:13.015013175Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:13.015016565Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:13.015020285Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:13.015024555Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:13.015028465Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:13.018699672Z [err]      )
+2026-08-04T11:53:13.018723591Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:13.018738531Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:13.018744631Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:13.018750001Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:13.018755681Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:13.018761581Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:13.018767721Z [err]      ...<3 lines>...
+2026-08-04T11:53:13.018773241Z [err]      )
+2026-08-04T11:53:13.018777971Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:13.018787701Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:13.018793941Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:13.018810831Z [err]      import nltk
+2026-08-04T11:53:13.018815591Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:13.018820751Z [err]      from nltk.text import *
+2026-08-04T11:53:13.018825731Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:13.018830681Z [err]      import regex
+2026-08-04T11:53:13.018835571Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:13.018841431Z [err]      raise ImportError(
+2026-08-04T11:53:13.018846291Z [err]      ...<3 lines>...
+2026-08-04T11:53:13.019877414Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:16.025065031Z [err]  2026-08-04 11:53:16.017 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:17.340347319Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:17.340349809Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:17.340352079Z [err]      sys.exit(main())
+2026-08-04T11:53:17.340354709Z [err]               ~~~~^^
+2026-08-04T11:53:17.340357479Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:17.340359599Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:17.340361719Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:17.340364079Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:17.340366389Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:17.340368959Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:17.340371379Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:17.340373689Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:17.340375819Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:17.340378469Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:17.340380849Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:17.340383359Z [err]      run(
+2026-08-04T11:53:17.340385629Z [err]      ~~~^
+2026-08-04T11:53:17.340387729Z [err]          app,
+2026-08-04T11:53:17.340389909Z [err]          ^^^^
+2026-08-04T11:53:17.340392729Z [err]      ...<48 lines>...
+2026-08-04T11:53:17.340395169Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:17.340397439Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:17.340399849Z [err]      )
+2026-08-04T11:53:17.340401949Z [err]      ^
+2026-08-04T11:53:17.340404249Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:17.340572648Z [err]      config.load_app()
+2026-08-04T11:53:17.340575088Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:17.340577548Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:17.340580948Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:17.340583818Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:17.340586538Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:17.340589338Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:17.340591777Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:17.340594207Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:17.340597037Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:17.340599437Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:17.340601977Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:17.340604407Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:17.340606827Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:17.340609237Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:17.340611957Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:17.340614767Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:17.340617417Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:17.340620277Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:17.341603361Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:17.341609331Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:17.341613231Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:17.341616951Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:17.341620391Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:17.341623671Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:17.341626741Z [err]      ...<3 lines>...
+2026-08-04T11:53:17.341629881Z [err]      )
+2026-08-04T11:53:17.341633231Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:17.341636791Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:17.341640201Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:17.341643881Z [err]      import nltk
+2026-08-04T11:53:17.341646931Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:17.341649901Z [err]      from nltk.text import *
+2026-08-04T11:53:17.341652881Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:17.341657611Z [err]      import regex
+2026-08-04T11:53:17.341660981Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:17.341664941Z [err]      raise ImportError(
+2026-08-04T11:53:17.341668801Z [err]      ...<3 lines>...
+2026-08-04T11:53:17.341672581Z [err]      )
+2026-08-04T11:53:17.342431446Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:20.087292206Z [err]  2026-08-04 11:53:20.086 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:21.078642212Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:21.078648012Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:21.078652772Z [err]      sys.exit(main())
+2026-08-04T11:53:21.078657192Z [err]               ~~~~^^
+2026-08-04T11:53:21.078660642Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:21.078664412Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:21.078667822Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:21.078670852Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:21.078673921Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:21.078676971Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:21.078679681Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:21.078683051Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:21.078685931Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:21.078689231Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:21.078692131Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:21.078695181Z [err]      run(
+2026-08-04T11:53:21.078698121Z [err]      ~~~^
+2026-08-04T11:53:21.078701171Z [err]          app,
+2026-08-04T11:53:21.078703981Z [err]          ^^^^
+2026-08-04T11:53:21.078707371Z [err]      ...<48 lines>...
+2026-08-04T11:53:21.078710311Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:21.078713641Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:21.078716471Z [err]      )
+2026-08-04T11:53:21.078719601Z [err]      ^
+2026-08-04T11:53:21.078722901Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:21.079863304Z [err]      config.load_app()
+2026-08-04T11:53:21.079866814Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:21.079870114Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:21.079873674Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:21.079876474Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:21.079878994Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:21.079881664Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:21.079884154Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:21.079898244Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:21.079901354Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:21.079904444Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:21.079907594Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:21.079910564Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:21.079981214Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:21.079984924Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:21.079988074Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:21.079990924Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:21.079993994Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:21.079997414Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:21.081330715Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:21.081334855Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:21.081338355Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:21.081341475Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:21.081474144Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:21.081485784Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:21.081490804Z [err]      ...<3 lines>...
+2026-08-04T11:53:21.081498324Z [err]      )
+2026-08-04T11:53:21.081502664Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:21.081507094Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:21.081511334Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:21.081515534Z [err]      import nltk
+2026-08-04T11:53:21.081519514Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:21.081523443Z [err]      from nltk.text import *
+2026-08-04T11:53:21.081527583Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:21.081536343Z [err]      import regex
+2026-08-04T11:53:21.081539923Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:21.081543553Z [err]      raise ImportError(
+2026-08-04T11:53:21.081549763Z [err]      ...<3 lines>...
+2026-08-04T11:53:21.081555213Z [err]      )
+2026-08-04T11:53:21.082049770Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:23.784654770Z [err]  2026-08-04 11:53:23.768 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:24.795455751Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:24.795456611Z [err]      ^
+2026-08-04T11:53:24.795471491Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:24.795471651Z [err]          ^^^^
+2026-08-04T11:53:24.795471871Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:24.795479341Z [err]      sys.exit(main())
+2026-08-04T11:53:24.795485211Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:24.795486361Z [err]      ...<48 lines>...
+2026-08-04T11:53:24.795490821Z [err]               ~~~~^^
+2026-08-04T11:53:24.795497681Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:24.795499471Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:24.795506931Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:24.795510961Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:24.795511091Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:24.795520091Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:24.795523401Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:24.795524081Z [err]      )
+2026-08-04T11:53:24.795529431Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:24.795532851Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:24.795538691Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:24.795545411Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:24.795549491Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:24.795552961Z [err]      run(
+2026-08-04T11:53:24.795556761Z [err]      ~~~^
+2026-08-04T11:53:24.795560961Z [err]          app,
+2026-08-04T11:53:24.796867723Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:24.796879843Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:24.796886403Z [err]      config.load_app()
+2026-08-04T11:53:24.796886573Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:24.796892763Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:24.796899573Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:24.796901533Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:24.796907653Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:24.796911483Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:24.796915283Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:24.796922203Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:24.796922293Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:24.796927733Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:24.796932033Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:24.796948272Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:24.796951842Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:24.796955922Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:24.796959772Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:24.796963572Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:24.797713187Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:24.797720847Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:24.797725907Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:24.797731077Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:24.797735627Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:24.797740427Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:24.797745237Z [err]      ...<3 lines>...
+2026-08-04T11:53:24.797750437Z [err]      )
+2026-08-04T11:53:24.797754867Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:24.797760127Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:24.797764667Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:24.797769127Z [err]      import nltk
+2026-08-04T11:53:24.797774917Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:24.797779607Z [err]      from nltk.text import *
+2026-08-04T11:53:24.797783707Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:24.797787896Z [err]      import regex
+2026-08-04T11:53:24.797792136Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:24.797796846Z [err]      raise ImportError(
+2026-08-04T11:53:24.797801436Z [err]      ...<3 lines>...
+2026-08-04T11:53:24.797857816Z [err]      )
+2026-08-04T11:53:24.798567052Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:27.508335367Z [err]  2026-08-04 11:53:27.381 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:28.471640310Z [err]      run(
+2026-08-04T11:53:28.471653380Z [err]      ~~~^
+2026-08-04T11:53:28.471659110Z [err]          app,
+2026-08-04T11:53:28.471664110Z [err]          ^^^^
+2026-08-04T11:53:28.471668900Z [err]      ...<48 lines>...
+2026-08-04T11:53:28.471674720Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:28.471681580Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:28.471686090Z [err]      )
+2026-08-04T11:53:28.471690940Z [err]      ^
+2026-08-04T11:53:28.471695570Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:28.471699200Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:28.471702650Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:28.471706140Z [err]      sys.exit(main())
+2026-08-04T11:53:28.471710050Z [err]               ~~~~^^
+2026-08-04T11:53:28.471713230Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:28.471717210Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:28.471720190Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:28.471724300Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:28.471727210Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:28.471730270Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:28.471732890Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:28.471735710Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:28.471739050Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:28.471741930Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:28.471744970Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:28.472357076Z [err]      config.load_app()
+2026-08-04T11:53:28.472361226Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:28.472364576Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:28.472367526Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:28.472370556Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:28.472373396Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:28.472376096Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:28.472378686Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:28.472381126Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:28.472383616Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:28.472386716Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:28.472389426Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:28.472392206Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:28.472395146Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:28.472397996Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:28.472400866Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:28.472404096Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:28.472407276Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:28.472410896Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:28.473888476Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:28.473893946Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:28.473898406Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:28.473902206Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:28.473905676Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:28.473909586Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:28.473913536Z [err]      ...<3 lines>...
+2026-08-04T11:53:28.473917236Z [err]      )
+2026-08-04T11:53:28.473920796Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:28.473924246Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:28.473927916Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:28.473931326Z [err]      import nltk
+2026-08-04T11:53:28.473934866Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:28.473938306Z [err]      from nltk.text import *
+2026-08-04T11:53:28.473941436Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:28.473945325Z [err]      import regex
+2026-08-04T11:53:28.473949245Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:28.473953465Z [err]      raise ImportError(
+2026-08-04T11:53:28.473956605Z [err]      ...<3 lines>...
+2026-08-04T11:53:28.473960845Z [err]      )
+2026-08-04T11:53:28.474745441Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:31.034308159Z [err]  2026-08-04 11:53:31.002 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:32.131665702Z [err]      ^
+2026-08-04T11:53:32.131670672Z [err]               ~~~~^^
+2026-08-04T11:53:32.131673042Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:32.131677522Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:32.131681162Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:32.131684092Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:32.131685782Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:32.131687342Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:32.131691592Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:32.131691762Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:32.131695342Z [err]      sys.exit(main())
+2026-08-04T11:53:32.131696072Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:32.131698702Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:32.131701382Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:32.131704602Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:32.131707662Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:32.131710342Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:32.131712812Z [err]      run(
+2026-08-04T11:53:32.131715152Z [err]      ~~~^
+2026-08-04T11:53:32.131717582Z [err]          app,
+2026-08-04T11:53:32.131719962Z [err]          ^^^^
+2026-08-04T11:53:32.131722652Z [err]      ...<48 lines>...
+2026-08-04T11:53:32.131725092Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:32.131727692Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:32.131730121Z [err]      )
+2026-08-04T11:53:32.133345182Z [err]      config.load_app()
+2026-08-04T11:53:32.133351252Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:32.133355782Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:32.133362632Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:32.133368152Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:32.133369502Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:32.133373882Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:32.133378092Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:32.133381722Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:32.133386382Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:32.133391222Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:32.133395732Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:32.133399682Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:32.133403782Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:32.133408431Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:32.133412541Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:32.133417321Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:32.133421451Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:32.133426421Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:32.134615793Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:32.134622193Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:32.134626773Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:32.134632033Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:32.134636973Z [err]      from nltk.text import *
+2026-08-04T11:53:32.134638023Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:32.134645683Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:32.134649293Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:32.134655213Z [err]      ...<3 lines>...
+2026-08-04T11:53:32.134657763Z [err]      import regex
+2026-08-04T11:53:32.134664943Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:32.134665653Z [err]      )
+2026-08-04T11:53:32.134672123Z [err]      raise ImportError(
+2026-08-04T11:53:32.134675503Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:32.134679443Z [err]      ...<3 lines>...
+2026-08-04T11:53:32.134687913Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:32.134688013Z [err]      )
+2026-08-04T11:53:32.134694403Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:32.134698343Z [err]      import nltk
+2026-08-04T11:53:32.134703113Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:32.135485698Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:34.649269218Z [err]  2026-08-04 11:53:34.646 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:35.796152577Z [err]      )
+2026-08-04T11:53:35.796164397Z [err]      ^
+2026-08-04T11:53:35.796169697Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:35.796178877Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:35.796182877Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:35.796186747Z [err]      sys.exit(main())
+2026-08-04T11:53:35.796190427Z [err]               ~~~~^^
+2026-08-04T11:53:35.796194797Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:35.796199117Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:35.796203657Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:35.796207587Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:35.796211447Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:35.796215136Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:35.796219675Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:35.796225725Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:35.796229595Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:35.796234165Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:35.796238265Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:35.796243515Z [err]      run(
+2026-08-04T11:53:35.796247945Z [err]      ~~~^
+2026-08-04T11:53:35.796252005Z [err]          app,
+2026-08-04T11:53:35.796256165Z [err]          ^^^^
+2026-08-04T11:53:35.796259985Z [err]      ...<48 lines>...
+2026-08-04T11:53:35.796264015Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:35.796267265Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:35.797056310Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:35.797064540Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:35.797077910Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:35.797084870Z [err]      config.load_app()
+2026-08-04T11:53:35.797085150Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:35.797092090Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:35.797096580Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:35.797099820Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:35.797111070Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:35.797115600Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:35.797127450Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:35.797133260Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:35.797139350Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:35.797145190Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:35.797150990Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:35.797157240Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:35.797163970Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:35.797169530Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:35.797174200Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:35.798640141Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:35.798647921Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:35.798652261Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:35.798655901Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:35.798660121Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:35.798664281Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:35.798667671Z [err]      ...<3 lines>...
+2026-08-04T11:53:35.798670941Z [err]      )
+2026-08-04T11:53:35.798673811Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:35.798795260Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:35.798822699Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:35.798826059Z [err]      import nltk
+2026-08-04T11:53:35.798829179Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:35.798832359Z [err]      from nltk.text import *
+2026-08-04T11:53:35.798836049Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:35.798839119Z [err]      import regex
+2026-08-04T11:53:35.798842269Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:35.798845739Z [err]      raise ImportError(
+2026-08-04T11:53:35.798848709Z [err]      ...<3 lines>...
+2026-08-04T11:53:35.798851429Z [err]      )
+2026-08-04T11:53:35.799108367Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:38.344661636Z [err]  2026-08-04 11:53:38.328 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:39.640276431Z [err]          app,
+2026-08-04T11:53:39.640283281Z [err]          ^^^^
+2026-08-04T11:53:39.640287071Z [err]      ...<48 lines>...
+2026-08-04T11:53:39.640290541Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:39.640293591Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:39.640298571Z [err]      )
+2026-08-04T11:53:39.640303701Z [err]      ^
+2026-08-04T11:53:39.640306981Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:39.640366421Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:39.640372591Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:39.640377071Z [err]      sys.exit(main())
+2026-08-04T11:53:39.640382121Z [err]               ~~~~^^
+2026-08-04T11:53:39.640386960Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:39.640391690Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:39.640400190Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:39.640404890Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:39.640408900Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:39.640412830Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:39.640417470Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:39.640421430Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:39.640425150Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:39.640429530Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:39.640433340Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:39.640436810Z [err]      run(
+2026-08-04T11:53:39.640440280Z [err]      ~~~^
+2026-08-04T11:53:39.643882818Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:39.643889478Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:39.643892448Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:39.643897198Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:39.643904278Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:39.643905788Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:39.643911327Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:39.643914947Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:39.643918727Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:39.643923217Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:39.643928547Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:39.643936397Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:39.643941277Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:39.643946347Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:39.643951397Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:39.643988637Z [err]      config.load_app()
+2026-08-04T11:53:39.643992917Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:39.643997567Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:39.644001607Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:39.646226453Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:39.646230923Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:39.646235813Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:39.646240603Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:39.646247143Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:39.646253743Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:39.646255343Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:39.646259642Z [err]      ...<3 lines>...
+2026-08-04T11:53:39.646265832Z [err]      )
+2026-08-04T11:53:39.646269422Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:39.646272742Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:39.646276952Z [err]      import nltk
+2026-08-04T11:53:39.646282282Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:39.646287142Z [err]      from nltk.text import *
+2026-08-04T11:53:39.646292752Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:39.646297892Z [err]      import regex
+2026-08-04T11:53:39.646302362Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:39.646307282Z [err]      raise ImportError(
+2026-08-04T11:53:39.646311992Z [err]      ...<3 lines>...
+2026-08-04T11:53:39.646316712Z [err]      )
+2026-08-04T11:53:39.647745714Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
+2026-08-04T11:53:42.091954036Z [err]  2026-08-04 11:53:42.086 | INFO     | pipecat:<module>:54 - ᓚᘏᗢ Pipecat 1.7.0 (Python 3.13.14 (main, Jul 23 2026, 14:44:45) [Clang 22.1.3 ]) ᓚᘏᗢ
+2026-08-04T11:53:43.130837681Z [err]  Traceback (most recent call last):
+2026-08-04T11:53:43.132386920Z [err]    File "/app/.venv/bin/uvicorn", line 6, in <module>
+2026-08-04T11:53:43.132397560Z [err]      sys.exit(main())
+2026-08-04T11:53:43.132402540Z [err]               ~~~~^^
+2026-08-04T11:53:43.132406660Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1569, in __call__
+2026-08-04T11:53:43.132409810Z [err]      return self.main(*args, **kwargs)
+2026-08-04T11:53:43.132413630Z [err]             ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:43.132416920Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1490, in main
+2026-08-04T11:53:43.132421080Z [err]      rv = self.invoke(ctx)
+2026-08-04T11:53:43.132430280Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 1353, in invoke
+2026-08-04T11:53:43.132435300Z [err]      return ctx.invoke(self.callback, **ctx.params)
+2026-08-04T11:53:43.132438690Z [err]             ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:43.132442620Z [err]    File "/app/.venv/lib/python3.13/site-packages/click/core.py", line 907, in invoke
+2026-08-04T11:53:43.132446090Z [err]      return callback(*args, **kwargs)
+2026-08-04T11:53:43.132449880Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 440, in main
+2026-08-04T11:53:43.132453280Z [err]      run(
+2026-08-04T11:53:43.132456790Z [err]      ~~~^
+2026-08-04T11:53:43.132460160Z [err]          app,
+2026-08-04T11:53:43.132463930Z [err]          ^^^^
+2026-08-04T11:53:43.132467110Z [err]      ...<48 lines>...
+2026-08-04T11:53:43.132470520Z [err]          reset_contextvars=reset_contextvars,
+2026-08-04T11:53:43.132474480Z [err]          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:43.132477750Z [err]      )
+2026-08-04T11:53:43.132481640Z [err]      ^
+2026-08-04T11:53:43.132484770Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 609, in run
+2026-08-04T11:53:43.133913011Z [err]    File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+2026-08-04T11:53:43.133917731Z [err]    File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2026-08-04T11:53:43.133921691Z [err]    File "/app/backend/app.py", line 26, in <module>
+2026-08-04T11:53:43.133925621Z [err]      from pipecat.pipeline.runner import PipelineRunner
+2026-08-04T11:53:43.133930471Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/runner.py", line 18, in <module>
+2026-08-04T11:53:43.133932891Z [err]      config.load_app()
+2026-08-04T11:53:43.133940161Z [err]      from pipecat.workers.runner import WorkerRunner
+2026-08-04T11:53:43.133942941Z [err]      ~~~~~~~~~~~~~~~^^
+2026-08-04T11:53:43.133946591Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 428, in load_app
+2026-08-04T11:53:43.133949171Z [err]      return import_from_string(self.app)
+2026-08-04T11:53:43.133952771Z [err]    File "/app/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-08-04T11:53:43.133956601Z [err]      module = importlib.import_module(module_str)
+2026-08-04T11:53:43.133959531Z [err]    File "/mise/installs/python/3.13.14/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2026-08-04T11:53:43.133962161Z [err]      return _bootstrap._gcd_import(name[level:], package, level)
+2026-08-04T11:53:43.133964821Z [err]             ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-08-04T11:53:43.133967591Z [err]    File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+2026-08-04T11:53:43.133970051Z [err]    File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2026-08-04T11:53:43.133980161Z [err]    File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2026-08-04T11:53:43.133983891Z [err]    File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2026-08-04T11:53:43.135445831Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/workers/runner.py", line 63, in <module>
+2026-08-04T11:53:43.135445921Z [err]      ...<3 lines>...
+2026-08-04T11:53:43.135454261Z [err]      )
+2026-08-04T11:53:43.135455211Z [err]      from pipecat.pipeline.worker import PipelineWorker
+2026-08-04T11:53:43.135459521Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/pipeline/worker.py", line 70, in <module>
+2026-08-04T11:53:43.135462061Z [err]      from pipecat.processors.frameworks.rtvi import RTVIObserver, RTVIObserverParams, RTVIProcessor
+2026-08-04T11:53:43.135465261Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/__init__.py", line 20, in <module>
+2026-08-04T11:53:43.135468231Z [err]      from pipecat.processors.frameworks.rtvi.observer import (
+2026-08-04T11:53:43.135470651Z [err]      ...<3 lines>...
+2026-08-04T11:53:43.135473491Z [err]      )
+2026-08-04T11:53:43.135476321Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/processors/frameworks/rtvi/observer.py", line 75, in <module>
+2026-08-04T11:53:43.135478971Z [err]      from pipecat.utils.string import match_endofsentence
+2026-08-04T11:53:43.135481751Z [err]    File "/app/.venv/lib/python3.13/site-packages/pipecat/utils/string.py", line 24, in <module>
+2026-08-04T11:53:43.135484321Z [err]      import nltk
+2026-08-04T11:53:43.135487131Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/__init__.py", line 142, in <module>
+2026-08-04T11:53:43.135489451Z [err]      from nltk.text import *
+2026-08-04T11:53:43.135491971Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/text.py", line 24, in <module>
+2026-08-04T11:53:43.135494531Z [err]      import regex
+2026-08-04T11:53:43.135497411Z [err]    File "/app/.venv/lib/python3.13/site-packages/nltk/inisec.py", line 128, in find_spec
+2026-08-04T11:53:43.135499811Z [err]      raise ImportError(
+2026-08-04T11:53:43.136679484Z [err]  ImportError: Blocked import of regex from current working directory for security reasons. Use '-P' or set PYTHONSAFEPATH to prevent Python from searching the current working directory.
