@@ -2,3 +2,8 @@ fastapi[standard]
 python-dotenv
 pipecat-ai[google,silero]
 google-genai
+fastapi[standard]
+python-dotenv
+pipecat-ai[google,silero]
+google-genai
+regex
