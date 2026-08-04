@@ -3,9 +3,11 @@ services:
     name: agentic-portfolio
     env: python
     buildCommand: "pip install -r base_pipeline/requirements.txt"
-    startCommand: "cd base_pipeline/backend && uvicorn app:app --host 0.0.0.0 --port $PORT"
+    startCommand: "cd base_pipeline/backend && PYTHONSAFEPATH=1 uvicorn app:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: GEMINI_API_KEY
         sync: false
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: PYTHONSAFEPATH
+        value: "1"
