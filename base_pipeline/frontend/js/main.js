@@ -1,910 +1,912 @@
-const statusEl = document.getElementById("status");
-const convLeftEl = document.getElementById("convLeft");
-const convRightEl = document.getElementById("convRight");
-const welcomeBubbleEl = document.getElementById("welcomeBubble");
-const inputShellEl = document.getElementById("inputShell");
-const textInputEl = document.getElementById("textInput");
-const talkBtn = document.getElementById("talkBtn");
-const sendBtn = document.getElementById("sendBtn");
+import { AvatarController } from './avatar.js';
 
+// ==========================================================================
+// DOM ELEMENTS
+// ==========================================================================
+const convHistoryEl = document.getElementById('convHistory');
+const convActiveEl = document.getElementById('convActive');
+const activeStatementEl = convActiveEl ? convActiveEl.querySelector('.active-statement') : null;
+const userQueryBadgeEl = document.getElementById('userQueryBadge');
+const userQueryTextEl = document.getElementById('userQueryText');
+const genuiContainerEl = document.getElementById('genuiContainer');
+const textInputEl = document.getElementById('textInput');
+const sendBtn = document.getElementById('sendBtn');
+const talkBtn = document.getElementById('talkBtn');
+const talkBtnTextEl = document.getElementById('talkBtnText');
+const contactModalBtn = document.getElementById('contactModalBtn');
+
+// ==========================================================================
+// STATE
+// ==========================================================================
 const mediaHandler = new MediaHandler();
-let eventsSource = null;
-let speakingTimeout = null;
-let currentAssistantMessageDiv = null;
-let currentUserMessageDiv = null;
-let hasInteracted = false;
-let voiceMode = false;
-let avatarReady = false;
+let isVoiceActive = false;
+let currentStreamingChunk = '';
+
+// Global AudioContext unlocker on first user interaction
+const unlockAudioOnGesture = () => {
+  mediaHandler.initializeAudio();
+  document.removeEventListener('click', unlockAudioOnGesture);
+  document.removeEventListener('keydown', unlockAudioOnGesture);
+  document.removeEventListener('touchstart', unlockAudioOnGesture);
+};
+document.addEventListener('click', unlockAudioOnGesture, { once: true });
+document.addEventListener('keydown', unlockAudioOnGesture, { once: true });
+document.addEventListener('touchstart', unlockAudioOnGesture, { once: true });
+
+// ==========================================================================
+// GEMINI WEBSOCKET CLIENT
+// ==========================================================================
+let hasEverEngaged = false;
+
+function handleSessionPaused() {
+  console.log('[SESSION] Standby triggered. Context preserved.');
+  isVoiceActive = false;
+  mediaHandler.stopAudio();
+  mediaHandler.stopAudioPlayback();
+  AvatarController.setAvatarState('idle');
+  AvatarController.setSpeaking(false);
+  updateVoiceButtonUI(true);
+  if (activeStatementEl && !activeStatementEl.textContent.includes('Re-engage')) {
+    pushToHistory(activeStatementEl.textContent);
+    activeStatementEl.textContent = 'Voice dialogue is standing by. Click "Re-engage Voice" or choose a prompt to continue.';
+    activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
+  }
+}
 
 const geminiClient = new GeminiClient({
-    onOpen: () => {
-        setStatus("connected", "connected");
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState("idle");
-        }
-        ensureEventsStream();
-    },
-    onMessage: (event) => {
-        if (typeof event.data === "string") {
-            try {
-                const payload = JSON.parse(event.data);
-                handleEventMessage(payload);
-            } catch (_) {
-                // Ignore non-JSON text websocket messages.
-            }
-            return;
-        }
+  autoConnect: false,
+  onOpen: () => {
+    console.log('[WS] Connected to /audio');
+    AvatarController.setAvatarState('idle');
+  },
+  onMessage: (event) => {
+    if (typeof event.data === 'string') {
+      try {
+        const payload = JSON.parse(event.data);
+        handleServerPayload(payload);
+      } catch (_) {}
+      return;
+    }
 
-        if (typeof event.data !== "string") {
-            mediaHandler.playAudio(event.data);
-            if (window.AvatarController) {
-                window.AvatarController.setAvatarState("speaking");
-                window.AvatarController.setSpeaking(true);
-            }
-
-            if (speakingTimeout) {
-                clearTimeout(speakingTimeout);
-            }
-            speakingTimeout = setTimeout(() => {
-                if (window.AvatarController) {
-                    window.AvatarController.setSpeaking(false);
-                }
-            }, 1200);
-        }
-    },
-    onClose: () => {
-        setStatus("disconnected");
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState("idle");
-            window.AvatarController.setSpeaking(false);
-        }
-    },
-    onError: () => {
-        setStatus("error", "error");
-    },
+    // Binary: 24kHz PCM audio frames from Gemini Live speech output
+    mediaHandler.playAudio(event.data);
+    AvatarController.setAvatarState('speaking');
+    AvatarController.setSpeaking(true);
+  },
+  onSessionPaused: (payload) => {
+    handleSessionPaused();
+  },
+  onClose: (event, meta) => {
+    console.log('[WS] Disconnected from /audio', meta);
+    if (meta && meta.wasPaused) {
+      handleSessionPaused();
+    } else {
+      AvatarController.setAvatarState('idle');
+      AvatarController.setSpeaking(false);
+      isVoiceActive = false;
+      updateVoiceButtonUI();
+    }
+  },
+  onError: (e) => {
+    console.error('[WS] Error:', e);
+  }
 });
 
-function setStatus(text, className = "") {
-    statusEl.textContent = text;
-    statusEl.className = `status-pill ${className}`.trim();
+// ==========================================================================
+// SSE /events — TOOL/GENUI BROADCAST CHANNEL
+// ==========================================================================
+let eventSource = null;
+function setupEventSource() {
+  if (eventSource) return;
+  try {
+    eventSource = new EventSource('/events');
+    eventSource.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        handleServerPayload(payload);
+      } catch (_) {}
+    };
+    eventSource.onerror = () => {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+        setTimeout(setupEventSource, 3000);
+      }
+    };
+  } catch (_) {}
 }
 
-function initAvatar() {
-    if (avatarReady) {
-        return;
+// ==========================================================================
+// INIT
+// ==========================================================================
+function init() {
+  AvatarController.initAvatar('viewer');
+  setupEventListeners();
+  setupEventSource();
+}
+
+// ==========================================================================
+// CONVERSATIONAL STACK (Left Editorial Column)
+// ==========================================================================
+function pushToHistory(text) {
+  if (!text || !convHistoryEl) return;
+  const clean = text.trim();
+  if (!clean || clean === 'Thinking...' || clean === '...') return;
+
+  const item = document.createElement('div');
+  item.className = 'conv-history-item';
+  item.textContent = clean;
+  item.title = 'Click to paste into prompt';
+  item.addEventListener('click', () => {
+    if (textInputEl) {
+      textInputEl.value = clean;
+      textInputEl.focus();
     }
-    if (!window.AvatarController) {
-        setTimeout(initAvatar, 100);
-        return;
-    }
-    window.AvatarController.initAvatar("viewer", "avatarState");
-    window.AvatarController.setAvatarState("idle");
-    avatarReady = true;
+  });
+  convHistoryEl.appendChild(item);
+
+  // Keep max 2 blurred history items
+  while (convHistoryEl.children.length > 2) {
+    convHistoryEl.removeChild(convHistoryEl.firstChild);
+  }
 }
 
-function hideWelcomeBubble() {
-    if (welcomeBubbleEl) {
-        welcomeBubbleEl.classList.add("is-hidden");
-        welcomeBubbleEl.classList.remove("is-visible");
-    }
+function setUserQueryBadge(text) {
+  if (!userQueryBadgeEl || !userQueryTextEl) return;
+  const clean = (text || '').trim();
+  if (clean) {
+    userQueryTextEl.textContent = clean;
+    userQueryBadgeEl.classList.remove('is-hidden');
+  } else {
+    userQueryBadgeEl.classList.add('is-hidden');
+  }
 }
 
-function setVoiceMode(active) {
-    voiceMode = active;
-    talkBtn.classList.toggle("is-active", active);
-    talkBtn.textContent = active ? "Stop Talking" : "Talk With Me";
-    inputShellEl.classList.toggle("is-hidden", active);
+function handleNewUserTurn(userQuery, preserveGenUI = false) {
+  // Stop existing audio playback immediately
+  mediaHandler.stopAudioPlayback();
+
+  // Dismiss previous GenUI cards unless explicitly preserved
+  if (!preserveGenUI) {
+    clearGenUI();
+  }
+
+  if (activeStatementEl && activeStatementEl.textContent) {
+    pushToHistory(activeStatementEl.textContent);
+  }
+  setUserQueryBadge(userQuery);
+  currentStreamingChunk = '';
+  if (activeStatementEl) {
+    activeStatementEl.textContent = 'Thinking...';
+    activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
+  }
+  if (convActiveEl) {
+    convActiveEl.scrollTop = 0;
+  }
+  AvatarController.setAvatarState('thinking');
+  AvatarController.updateTranscript(`YOU: ${userQuery}`);
 }
 
-let autoFadeTimer = null;
+function handleAssistantStreamChunk(aiText, isFinal = false) {
+  if (!activeStatementEl) return;
 
-function showConvCard(el, label, text, cssClass) {
-    // Clear previous content
-    el.innerHTML = "";
-    el.className = `conv-card ${cssClass}`;
+  currentStreamingChunk = (aiText || '').trim();
 
-    const labelEl = document.createElement("span");
-    labelEl.className = "conv-label";
-    labelEl.textContent = label;
+  if (currentStreamingChunk) {
+    activeStatementEl.textContent = currentStreamingChunk;
 
-    const textEl = document.createElement("p");
-    textEl.className = `conv-text ${cssClass}`;
-    textEl.textContent = text;
-
-    el.appendChild(labelEl);
-    el.appendChild(textEl);
-
-    // Force reflow before adding is-visible so transition fires
-    el.getBoundingClientRect();
-    el.classList.add("is-visible");
-    el.classList.remove("is-fading");
-}
-
-function fadeOutCards() {
-    [convLeftEl, convRightEl].forEach((el) => {
-        el.classList.add("is-fading");
-        el.classList.remove("is-visible");
-    });
-}
-
-function markInteraction() {
-    if (!hasInteracted) {
-        hasInteracted = true;
-        hideWelcomeBubble();
-    }
-}
-
-function appendMessage(type, text) {
-    if (!text || !text.trim()) return null;
-    markInteraction();
-
-    if (type === "user") {
-        // New user message: fade out both old cards first
-        if (autoFadeTimer) clearTimeout(autoFadeTimer);
-        fadeOutCards();
-        setTimeout(() => {
-            showConvCard(convLeftEl, "YOU", text.trim(), "user");
-            // Clear the AI card content when new user message comes
-            convRightEl.classList.remove("is-visible");
-            convRightEl.classList.add("is-fading");
-        }, 400);
+    // Dynamic Font Scaling based on text volume
+    const charCount = currentStreamingChunk.length;
+    if (charCount > 220) {
+      activeStatementEl.classList.add('is-long-text');
+      activeStatementEl.classList.remove('is-medium-text');
+    } else if (charCount > 95) {
+      activeStatementEl.classList.add('is-medium-text');
+      activeStatementEl.classList.remove('is-long-text');
     } else {
-        showConvCard(convRightEl, "PRADEEP AI", text.trim(), "assistant");
-        // Auto-fade both cards after 12 seconds
-        if (autoFadeTimer) clearTimeout(autoFadeTimer);
-        autoFadeTimer = setTimeout(fadeOutCards, 12000);
+      activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
     }
 
-    return type === "user" ? convLeftEl : convRightEl;
+    // Auto-scroll stream container to stay focused on active tokens
+    if (convActiveEl && convActiveEl.scrollHeight > convActiveEl.clientHeight) {
+      convActiveEl.scrollTop = convActiveEl.scrollHeight;
+    }
+
+    AvatarController.updateTranscript(currentStreamingChunk);
+  }
 }
 
-function appendStreamingChunk(type, text, finalized) {
-    const trimmed = (text || "").trim();
-    if (!trimmed) return;
+// ==========================================================================
+// SERVER PAYLOAD HANDLER
+// ==========================================================================
+function handleServerPayload(payload) {
+  if (!payload || !payload.type) return;
 
-    markInteraction();
-
-    if (type === "user") {
-        if (!currentUserMessageDiv) {
-            if (autoFadeTimer) clearTimeout(autoFadeTimer);
-            fadeOutCards();
-            setTimeout(() => {
-                convLeftEl.innerHTML = "";
-                convLeftEl.className = "conv-card user";
-                const labelEl = document.createElement("span");
-                labelEl.className = "conv-label";
-                labelEl.textContent = "YOU";
-                const textEl = document.createElement("p");
-                textEl.className = "conv-text user";
-                textEl.textContent = trimmed;
-                convLeftEl.appendChild(labelEl);
-                convLeftEl.appendChild(textEl);
-                convLeftEl.getBoundingClientRect();
-                convLeftEl.classList.add("is-visible");
-                convLeftEl.classList.remove("is-fading");
-                convRightEl.classList.remove("is-visible");
-                convRightEl.classList.add("is-fading");
-                currentUserMessageDiv = convLeftEl.querySelector(".conv-text.user");
-            }, 400);
-        } else {
-            currentUserMessageDiv.textContent = trimmed;
-        }
-        if (finalized) currentUserMessageDiv = null;
-    } else {
-        if (!currentAssistantMessageDiv) {
-            convRightEl.innerHTML = "";
-            convRightEl.className = "conv-card assistant";
-            const labelEl = document.createElement("span");
-            labelEl.className = "conv-label";
-            labelEl.textContent = "PRADEEP AI";
-            const textEl = document.createElement("p");
-            textEl.className = "conv-text assistant";
-            textEl.textContent = trimmed;
-            convRightEl.appendChild(labelEl);
-            convRightEl.appendChild(textEl);
-            convRightEl.getBoundingClientRect();
-            convRightEl.classList.add("is-visible");
-            convRightEl.classList.remove("is-fading");
-            currentAssistantMessageDiv = textEl;
-        } else {
-            currentAssistantMessageDiv.textContent = `${currentAssistantMessageDiv.textContent} ${trimmed}`.replace(/\s+/g, " ").trim();
-        }
-        if (finalized) {
-            currentAssistantMessageDiv = null;
-            if (autoFadeTimer) clearTimeout(autoFadeTimer);
-            autoFadeTimer = setTimeout(fadeOutCards, 12000);
-        }
+  switch (payload.type) {
+    case 'user_stream': {
+      const liveUserText = (payload.text || '').trim();
+      if (liveUserText) {
+        setUserQueryBadge(liveUserText);
+        AvatarController.updateTranscript(`YOU: ${liveUserText}`);
+      }
+      break;
     }
+
+    case 'assistant_stream': {
+      const liveAiText = (payload.text || '').trim();
+      if (liveAiText) {
+        handleAssistantStreamChunk(liveAiText, false);
+      }
+      break;
+    }
+
+    case 'user': {
+      const userText = (payload.text || '').trim();
+      if (userText) {
+        handleNewUserTurn(userText);
+      }
+      break;
+    }
+
+    case 'assistant': {
+      const aiText = (payload.text || '').trim();
+      if (aiText) {
+        handleAssistantStreamChunk(aiText, true);
+      }
+      break;
+    }
+
+    case 'turn_complete':
+      currentStreamingChunk = '';
+      AvatarController.setAvatarState('idle');
+      AvatarController.setSpeaking(false);
+      break;
+
+    case 'status': {
+      const state = payload.state || 'idle';
+      if (state === 'listening') {
+        AvatarController.setAvatarState('listening');
+      } else if (state === 'thinking') {
+        AvatarController.setAvatarState('thinking');
+      } else if (state === 'speaking') {
+        AvatarController.setAvatarState('speaking');
+      } else if (state === 'connected' || state === 'idle' || state === 'ready') {
+        AvatarController.setAvatarState('idle');
+      }
+      break;
+    }
+
+    case 'session_paused':
+      handleSessionPaused();
+      break;
+
+    // --- GenUI Tool Events ---
+    case 'show_project':
+      if (payload.project) {
+        renderGenUIProjectBento(payload.project);
+      }
+      break;
+
+    case 'show_projects':
+      if (payload.projects) {
+        renderGenUIProjectsList(payload.projects);
+      }
+      break;
+
+    case 'show_skills':
+      if (payload.quadrants) {
+        renderGenUISkillsMatrix(payload.quadrants);
+      }
+      break;
+
+    case 'show_experience':
+      if (payload.experience) {
+        renderGenUIExperienceTimeline(payload.experience);
+      }
+      break;
+
+    case 'show_certifications':
+      if (payload.certifications) {
+        renderGenUICertifications(payload.certifications);
+        const list = Array.isArray(payload.certifications) ? payload.certifications : (payload.certifications.completed_certifications || []);
+        const firstWithImg = list.find(c => c.image) || list[0];
+        const imgUrl = payload.active_image || (firstWithImg && firstWithImg.image) || '/static/assests/Screenshot 2026-09-06 131836.png';
+        const title = (firstWithImg && (firstWithImg.name || firstWithImg.title)) || 'AZURE AI AGENTS ASSOCIATE';
+        AvatarController.displayImage(imgUrl, title);
+      }
+      break;
+
+    case 'open_link':
+      if (payload.url) {
+        console.log('[OPEN_LINK] Opening URL:', payload.url);
+        let win = null;
+        try {
+          win = window.open(payload.url, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+          console.warn('[OPEN_LINK] window.open error:', err);
+        }
+
+        // Anchor dispatch attempt
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+          try {
+            const a = document.createElement('a');
+            a.href = payload.url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch (_) {}
+        }
+      }
+      break;
+  }
+}// ==========================================================================
+// STUDIO RIGHT FLANK GENUI RENDERERS
+// ==========================================================================
+
+let lastGenUICall = null;
+
+function setGenUIOpen(isOpen) {
+  if (isOpen) {
+    document.body.classList.add('has-genui-open');
+  } else {
+    document.body.classList.remove('has-genui-open');
+  }
+  AvatarController.setGenUIActive(isOpen);
 }
 
-function handleEventMessage(payload) {
-    if (!payload || !payload.type) {
-        return;
-    }
-
-    if (payload.type === "user") {
-        const text = (payload.text || "").trim();
-        if (!text) {
-            return;
-        }
-
-        // Auto-hide any open project cards when the user sends a new message
-        dismissOrbitCards();
-        document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container, .floating-skill").forEach(el => {
-            el.style.opacity = "0";
-            if (el.classList.contains("single-project-card") || el.classList.contains("project-orbit-card")) {
-                el.style.transform = "translate(-50%, -50%) translateY(40px)";
-            }
-            setTimeout(() => el.remove(), 500);
-        });
-        document.body.classList.remove("hide-conv");
-
-        appendStreamingChunk("user", text, true);
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState("thinking");
-        }
-        return;
-    }
-
-    if (payload.type === "assistant") {
-        const text = (payload.text || "").trim();
-        if (!text) {
-            return;
-        }
-
-        appendStreamingChunk("assistant", text, false);
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState("speaking");
-        }
-        return;
-    }
-
-    if (payload.type === "turn_complete") {
-        currentAssistantMessageDiv = null;
-        currentAssistantMessageDiv = null;
-        currentUserMessageDiv = null;
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState("idle");
-            window.AvatarController.setSpeaking(false);
-        }
-        return;
-    }
-
-    if (payload.type === "status") {
-        const state = payload.state || "idle";
-        if (state === "connected") {
-            setStatus("connected", "connected");
-        }
-        if (state === "disconnected") {
-            setStatus("disconnected");
-        }
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState(state === "connected" ? "idle" : state);
-        }
-        return;
-    }
-
-    if (payload.type === "open_link") {
-        if (payload.url) {
-            window.open(payload.url, "_blank");
-        }
-        return;
-    }
-
-    if (payload.type === "show_skills") {
-        if (!payload.quadrants || !Array.isArray(payload.quadrants)) return;
-        
-        const stage = document.querySelector(".stage");
-        if (!stage) return;
-
-        // Clear any project cards or timelines when showing skills
-        dismissOrbitCards();
-        document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container, .floating-skill").forEach(el => {
-            el.style.opacity = "0";
-            el.style.transform = "translate(-50%, -50%) translateY(40px)";
-            setTimeout(() => el.remove(), 500);
-        });
-
-        // Add hide-conv because this is a primary view now
-        document.body.classList.add("hide-conv");
-
-        const isMobile = window.innerWidth < 640;
-        
-        // 1. Spawning Ambient Floating Icons
-        if (payload.skills && Array.isArray(payload.skills)) {
-            const iconMap = {
-                "python": "python/python-original.svg",
-                "javascript": "javascript/javascript-original.svg",
-                "java": "java/java-original.svg",
-                "html": "html5/html5-original.svg",
-                "css": "css3/css3-original.svg",
-                "fastapi": "fastapi/fastapi-original.svg",
-                "flask": "flask/flask-original.svg",
-                "nodejs": "nodejs/nodejs-original.svg",
-                "websockets": "socketio/socketio-original.svg",
-                "mysql": "mysql/mysql-original.svg",
-                "mongodb": "mongodb/mongodb-original.svg",
-                "sqlite": "sqlite/sqlite-original.svg",
-                "supabase": "supabase/supabase-original.svg",
-                "azure": "azure/azure-original.svg",
-                "git": "git/git-original.svg",
-                "github": "github/github-original.svg",
-                "docker": "docker/docker-original.svg",
-                "bootstrap": "bootstrap/bootstrap-original.svg",
-                "react": "react/react-original.svg",
-                "threejs": "threejs/threejs-original.svg",
-                "gemini": "google/google-original.svg"
-            };
-
-            payload.skills.forEach((skill) => {
-                const skillKey = skill.toLowerCase();
-                const iconPath = iconMap[skillKey] || null;
-                if (!iconPath) return; // Only spawn if we have an icon, to keep it clean
-
-                const el = document.createElement("div");
-                el.className = "floating-skill";
-                
-                const spreadVw = isMobile ? 25 : 35;
-                const randomX = (Math.random() - 0.5) * 2 * spreadVw;
-                const delay = Math.random() * 2;
-                
-                // Randomize vertical start point slightly so they don't all clump
-                const randomY = (Math.random() * 40) + 10;
-
-                el.style.left = `calc(50% + ${randomX}vw)`;
-                el.style.bottom = `${randomY}%`;
-                el.style.animationDelay = `-${delay * 5}s`; // start at random phase
-
-                const img = document.createElement("img");
-                img.src = `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${iconPath}`;
-                img.onerror = () => el.remove();
-                el.appendChild(img);
-                
-                stage.appendChild(el);
-                
-                // Fade in
-                setTimeout(() => el.classList.add("is-visible"), 100);
-            });
-        }
-
-        // 2. Build the Bento Box Grid
-        const container = document.createElement("div");
-        container.className = "skills-bento-container";
-        
-        container.innerHTML = `
-            <div class="bento-col bento-col-left"></div>
-            <div class="bento-col bento-col-right"></div>
-        `;
-        const leftCol = container.querySelector(".bento-col-left");
-        const rightCol = container.querySelector(".bento-col-right");
-
-        payload.quadrants.forEach((quad, i) => {
-            const el = document.createElement("div");
-            el.className = "bento-panel";
-            
-            const chips = quad.items.map(t => `<span class="bento-chip">${t}</span>`).join("");
-            
-            el.innerHTML = `
-                <div class="bento-title">${quad.title}</div>
-                <div class="bento-chips">${chips}</div>
-            `;
-            
-            if (i < 2) {
-                leftCol.appendChild(el);
-            } else {
-                rightCol.appendChild(el);
-            }
-
-            setTimeout(() => {
-                el.classList.add("is-visible");
-            }, i * 150 + 100);
-        });
-
-        stage.appendChild(container);
-        return;
-    }
-
-    if (payload.type === "show_projects") {
-        if (!payload.projects || !Array.isArray(payload.projects)) return;
-
-        const stage = document.querySelector(".stage");
-        if (!stage) return;
-
-        // Clear any existing orbit cards
-        document.querySelectorAll(".project-orbit-card").forEach(el => el.remove());
-
-        // Clear any existing single project card or timeline
-        document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container, .floating-skill").forEach(el => {
-            el.style.opacity = "0";
-            if (el.classList.contains("single-project-card") || el.classList.contains("project-orbit-card")) {
-                el.style.transform = "translate(-50%, -50%) translateY(40px)";
-            }
-            setTimeout(() => el.remove(), 500);
-        });
-        document.body.classList.remove("hide-conv");
-
-        const projects = payload.projects;
-        const isMobile = window.innerWidth < 640;
-
-        // 6 orbit slots around the avatar
-        const orbitSlots = [
-            { top: "12%",  left: "14%",  flyFrom: "translate(-130%, -130%)" },
-            { top: "12%",  right: "14%", flyFrom: "translate(130%, -130%)"  },
-            { top: "42%",  left: "8%",   flyFrom: "translate(-140%, 0)"     },
-            { top: "42%",  right: "8%",  flyFrom: "translate(140%, 0)"      },
-            { top: "63%",  left: "18%",  flyFrom: "translate(-130%, 130%)"  },
-            { top: "63%",  right: "18%", flyFrom: "translate(130%, 130%)"   },
-        ];
-
-        document.body.classList.add("hide-conv");
-
-        const cardEls = [];
-
-        projects.forEach((proj, i) => {
-            const el = document.createElement("div");
-            el.className = "project-orbit-card";
-            el.dataset.projectName = proj.name;
-
-            const chips = (proj.techs || []).slice(0, 3)
-                .map(t => `<span class="poc-chip">${t}</span>`).join("");
-
-            el.innerHTML = `
-                <div class="poc-type">${proj.type || ""}</div>
-                <div class="poc-name">${proj.name}</div>
-                <div class="poc-summary">${(proj.summary || "").substring(0, 72)}…</div>
-                <div class="poc-chips">${chips}</div>
-            `;
-
-            if (isMobile) {
-                el.style.transform = "translateX(110vw)";
-            } else {
-                const slot = orbitSlots[i % orbitSlots.length];
-                el.style.top   = slot.top;
-                if (slot.left)  el.style.left  = slot.left;
-                if (slot.right) el.style.right = slot.right;
-                el.style.transform = slot.flyFrom;
-                el.style.opacity   = "0";
-            }
-
-            el.addEventListener("click", () => {
-                const name = el.dataset.projectName;
-                dismissOrbitCards(() => {
-                    sendTextProgrammatic(`Tell me about your ${name} project`);
-                });
-            });
-
-            stage.appendChild(el);
-            cardEls.push({ el, slot: orbitSlots[i % orbitSlots.length] });
-        });
-
-        // Staggered fly-in
-        cardEls.forEach(({ el }, i) => {
-            setTimeout(() => {
-                el.style.transition = "transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.45s ease";
-                el.style.transform  = "translate(0, 0)";
-                el.style.opacity    = "1";
-            }, i * 110);
-        });
-
-        return;
-    }
-
-    if (payload.type === "show_project") {
-        if (!payload.project) return;
-        const stage = document.querySelector(".stage");
-        if (!stage) return;
-
-        // Ensure orbit cards are dismissed before showing single project
-        dismissOrbitCards();
-
-        // Remove existing single card or timeline if any
-        document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container, .floating-skill").forEach(el => el.remove());
-        document.body.classList.remove("hide-conv");
-
-        const proj = payload.project;
-        const el = document.createElement("div");
-        el.className = "single-project-card";
-
-        // Parse technologies
-        let techs = [];
-        if (proj.technologies) {
-            if (Array.isArray(proj.technologies)) {
-                techs = proj.technologies;
-            } else if (typeof proj.technologies === 'object') {
-                Object.values(proj.technologies).forEach(v => {
-                    if (Array.isArray(v)) techs.push(...v);
-                });
-            }
-        }
-        const techChips = techs.map(t => `<span class="spc-chip">${t}</span>`).join("");
-
-        // Parse features
-        const featuresList = (proj.features || []).map(f => `<li>${f}</li>`).join("");
-        const featuresHtml = featuresList ? `
-            <div class="spc-section-title">Key Features</div>
-            <ul class="spc-features">${featuresList}</ul>
-        ` : '';
-
-        // Parse links
-        let linksHtml = '';
-        if (proj.github_url) {
-            linksHtml += `<a href="${proj.github_url}" target="_blank" class="spc-btn">GitHub Repository</a>`;
-        }
-        if (proj.live_link) {
-            linksHtml += `<a href="${proj.live_link}" target="_blank" class="spc-btn secondary">View Live Project</a>`;
-        }
-        
-        document.body.classList.add("hide-conv");
-
-        el.innerHTML = `
-            <div class="spc-pane spc-pane-left">
-                <div class="spc-type">${proj.type || "Project"}</div>
-                <div class="spc-name">${proj.name}</div>
-                <div class="spc-desc">${proj.summary || ""}</div>
-                ${featuresHtml}
-            </div>
-            <div class="spc-pane spc-pane-right">
-                <button class="spc-close" aria-label="Close card">×</button>
-                <div class="spc-section-title">Tech Stack</div>
-                <div class="spc-chips">
-                    ${techChips || '<span class="spc-chip">Not specified</span>'}
-                </div>
-                <div class="spc-links">
-                    ${linksHtml}
-                </div>
-            </div>
-        `;
-
-        el.querySelector(".spc-close").addEventListener("click", () => {
-            el.style.opacity = "0";
-            el.style.transform = "translate(-50%, -50%) translateY(40px)";
-            setTimeout(() => {
-                el.remove();
-                if (document.querySelectorAll(".project-orbit-card").length === 0) {
-                    document.body.classList.remove("hide-conv");
-                }
-            }, 500);
-        });
-
-        stage.appendChild(el);
-        // Trigger reflow for animation
-        void el.offsetWidth;
-        el.classList.add("is-visible");
-
-        return;
-    }
-
-    if (payload.type === "show_experience") {
-        if (!payload.experience) return;
-        const data = payload.experience;
-        const stage = document.querySelector(".stage");
-        if (!stage) return;
-
-        // Cleanup existing UI
-        dismissOrbitCards();
-        document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container, .floating-skill").forEach(el => el.remove());
-        document.body.classList.add("hide-conv");
-
-        const combined = [];
-        if (data.career_timeline) {
-            data.career_timeline.forEach(c => {
-                combined.push({
-                    type: "milestone",
-                    year: c.year,
-                    title: c.milestone,
-                    desc: c.description
-                });
-            });
-        }
-        if (data.professional_experience) {
-            data.professional_experience.forEach(p => {
-                let yr = 0;
-                if (p.duration && p.duration.start) {
-                    const match = p.duration.start.match(/\d{4}/);
-                    if (match) yr = parseInt(match[0]);
-                }
-                combined.push({
-                    type: "job",
-                    year: yr,
-                    title: p.role,
-                    subtitle: `${p.company} | ${p.duration.start} - ${p.duration.end}`,
-                    desc: p.primary_focus ? p.primary_focus.join(", ") : (p.key_learnings ? p.key_learnings.join(", ") : "")
-                });
-            });
-        }
-        
-        // Sort descending
-        combined.sort((a, b) => b.year - a.year);
-
-        const el = document.createElement("div");
-        el.className = "experience-timeline";
-        
-        let html = '<div class="timeline-container">';
-        combined.forEach(item => {
-            const isMilestone = item.type === "milestone";
-            html += `
-                <div class="timeline-item ${isMilestone ? 'milestone' : ''}">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-year">${item.year || ''}</div>
-                        <div class="timeline-title">${item.title}</div>
-                        ${item.subtitle ? `<div class="timeline-subtitle">${item.subtitle}</div>` : ''}
-                        <div class="timeline-desc">${item.desc || ''}</div>
-                    </div>
-                </div>
-            `;
-        });
-        html += '</div>';
-        
-        el.innerHTML = html;
-        stage.appendChild(el);
-
-        // Trigger animations
-        setTimeout(() => {
-            el.querySelectorAll(".timeline-item").forEach((item, i) => {
-                setTimeout(() => item.classList.add("is-visible"), i * 150);
-            });
-        }, 50);
-
-        return;
-    }
-
-    if (payload.type === "show_certifications") {
-        if (!payload.certifications || !payload.certifications.length) return;
-        const certs = payload.certifications;
-        const stage = document.querySelector(".stage");
-        if (!stage) return;
-
-        // Cleanup existing UI
-        dismissOrbitCards();
-        document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container, .floating-skill").forEach(el => el.remove());
-        document.body.classList.add("hide-conv");
-
-        const container = document.createElement("div");
-        container.className = "cert-grid-container";
-        
-        container.innerHTML = `
-            <div class="cert-col cert-col-left"></div>
-            <div class="cert-col cert-col-right"></div>
-        `;
-        const leftCol = container.querySelector(".cert-col-left");
-        const rightCol = container.querySelector(".cert-col-right");
-
-        const logos = {
-            "Microsoft": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" class="cert-logo"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>`,
-            "GitHub": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="cert-logo"><path fill="#181717" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>`,
-            "NPTEL": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="cert-logo"><path fill="#000" d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72l5 2.73 5-2.73v3.72z"/></svg>`
-        };
-
-        certs.forEach((cert, i) => {
-            if (i > 3) return; // Only up to 4
-            
-            const el = document.createElement("div");
-            el.className = `cert-card`;
-
-            const logo = logos[cert.provider] || logos["NPTEL"];
-            const skills = (cert.skills_gained || []).slice(0, 3).map(s => `<span class="cert-skill-chip">${s}</span>`).join("");
-
-            let verifyBtnHtml = "";
-            if (cert.verify_url && cert.verify_url !== "#") {
-                verifyBtnHtml = `<a href="${cert.verify_url}" target="_blank" class="cert-verify-btn">Verify Certificate</a>`;
-            }
-
-            el.innerHTML = `
-                <div class="cert-header">
-                    ${logo}
-                    <div class="cert-provider">${cert.provider}</div>
-                </div>
-                <div class="cert-name">${cert.name}</div>
-                <div class="cert-skills">${skills}</div>
-                ${verifyBtnHtml}
-            `;
-
-            // Alternate putting them in left and right column
-            if (i % 2 === 0) {
-                leftCol.appendChild(el);
-            } else {
-                rightCol.appendChild(el);
-            }
-
-            // Animate in
-            setTimeout(() => {
-                el.classList.add("is-visible");
-            }, i * 150 + 100);
-        });
-
-        stage.appendChild(container);
-        return;
-    }
-
-    if (payload.type === "error") {
-        setStatus("error", "error");
-        appendMessage("assistant", `Error: ${payload.message || "Unknown error"}`);
-    }
+function clearGenUI() {
+  if (genuiContainerEl) {
+    genuiContainerEl.innerHTML = '';
+  }
+  lastGenUICall = null;
+  setGenUIOpen(false);
+  AvatarController.clearImage();
 }
 
-// ── Orbit card helpers ─────────────────────────────────────────────────────
+// Helper: Escape HTML strings safely
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-function dismissOrbitCards(onDone) {
-    const cards = [...document.querySelectorAll(".project-orbit-card")];
-    if (!cards.length) { 
-        if (document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container").length === 0) {
-            document.body.classList.remove("hide-conv");
-        }
-        onDone && onDone(); 
-        return; 
-    }
+// --------------------------------------------------------------------------
+// 1. PROJECTS OVERVIEW (Multi-Project Slate)
+// --------------------------------------------------------------------------
+function renderGenUIProjectsList(projects) {
+  if (!projects || !Array.isArray(projects)) return;
+  clearGenUI();
+  lastGenUICall = { type: 'projects', payload: projects };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  const rowsHtml = projects.slice(0, 5).map((p, idx) => {
+    let techs = p.techs || [];
+    if (!Array.isArray(techs)) techs = [];
+    const chipsHtml = techs.slice(0, 3).map(t => `<span class="slate-chip">${escapeHtml(t)}</span>`).join('');
+
+    return `
+      <div class="slate-project-item" data-project-idx="${idx}">
+        <div class="slate-project-header">
+          <span class="slate-project-num">0${idx + 1} //</span>
+          <h4 class="slate-project-title">${escapeHtml(p.name)}</h4>
+          <span class="slate-project-arrow">↗</span>
+        </div>
+        <p class="slate-project-summary">${escapeHtml(p.summary || '')}</p>
+        <div class="slate-project-chips">${chipsHtml}</div>
+      </div>
+    `;
+  }).join('<div class="slate-divider"></div>');
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">SPECIMEN // FEATURED SYSTEMS (0${Math.min(projects.length, 5)})</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
     
-    let completed = 0;
-    cards.forEach((el) => {
-        el.style.transition = "transform 0.4s ease, opacity 0.3s ease";
-        el.style.transform = "translateY(20px)";
-        el.style.opacity = "0";
-        setTimeout(() => {
-            if (el.parentNode) el.remove();
-            completed++;
-            if (completed === cards.length) {
-                if (document.querySelectorAll(".single-project-card, .experience-timeline, .cert-grid-container, .skills-bento-container").length === 0) {
-                    document.body.classList.remove("hide-conv");
-                }
-                onDone && onDone();
-            }
-        }, 400);
+    <h3 class="slate-title">Engineered Pipelines</h3>
+    <p class="slate-lead">Select any specimen below to inspect its architecture, latency, and capabilities.</p>
+    
+    <div class="slate-projects-list">${rowsHtml}</div>
+  `;
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+
+  slate.querySelectorAll('.slate-project-item').forEach((item) => {
+    item.addEventListener('click', () => {
+      const idx = parseInt(item.dataset.projectIdx, 10);
+      const proj = projects[idx];
+      if (proj) {
+        renderGenUIProjectBento(proj);
+        sendUserQuery(`Tell me about your ${proj.name} project in detail`, true);
+      }
     });
+  });
+
+  genuiContainerEl.appendChild(slate);
 }
 
-async function sendTextProgrammatic(text) {
-    appendMessage("user", text);
+// --------------------------------------------------------------------------
+// 2. SINGLE PROJECT SPECIMEN BENTO (Deep Dive)
+// --------------------------------------------------------------------------
+function renderGenUIProjectBento(project) {
+  if (!project) return;
+  clearGenUI();
+  lastGenUICall = { type: 'project', payload: project };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  let modelsList = '';
+  let frameworksList = '';
+  if (project.technologies) {
+    if (typeof project.technologies === 'object' && !Array.isArray(project.technologies)) {
+      if (project.technologies.models) modelsList = project.technologies.models.join(' · ');
+      if (project.technologies.frameworks) frameworksList = project.technologies.frameworks.join(' · ');
+    } else if (Array.isArray(project.technologies)) {
+      frameworksList = project.technologies.slice(0, 4).join(' · ');
+    }
+  }
+
+  const features = project.features || project.architecture_concepts || [];
+  const featuresListHtml = features.slice(0, 4).map(f => `<li>${escapeHtml(f)}</li>`).join('');
+
+  let actionsHtml = '';
+  if (project.github_url) {
+    actionsHtml += `<a href="${escapeHtml(project.github_url)}" target="_blank" rel="noopener noreferrer" class="slate-btn primary">GitHub ↗</a>`;
+  }
+  if (project.live_link) {
+    actionsHtml += `<a href="${escapeHtml(project.live_link)}" target="_blank" rel="noopener noreferrer" class="slate-btn secondary">Live Demo ↗</a>`;
+  }
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">SPECIMEN // ${escapeHtml(project.type || 'VOICE AI').toUpperCase()}</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+      <span class="slate-badge badge-live">● PRODUCTION</span>
+      <span class="slate-badge badge-metric">&lt;400ms LATENCY</span>
+    </div>
+
+    <h3 class="slate-title">${escapeHtml(project.name)}</h3>
+    <p class="slate-lead">${escapeHtml(project.summary || project.problem_statement || '')}</p>
+
+    <div class="slate-ledger">
+      <div class="ledger-row">
+        <span class="ledger-key">STATUS</span>
+        <span class="ledger-val">${escapeHtml(project.status || 'Completed / Deployed')}</span>
+      </div>
+      ${modelsList ? `
+      <div class="ledger-row">
+        <span class="ledger-key">INTELLIGENCE</span>
+        <span class="ledger-val">${escapeHtml(modelsList)}</span>
+      </div>` : ''}
+      ${frameworksList ? `
+      <div class="ledger-row">
+        <span class="ledger-key">FRAMEWORKS</span>
+        <span class="ledger-val">${escapeHtml(frameworksList)}</span>
+      </div>` : ''}
+    </div>
+
+    ${featuresListHtml ? `
+    <div class="slate-section">
+      <div class="slate-section-label">KEY CAPABILITIES</div>
+      <ul class="slate-spec-list">${featuresListHtml}</ul>
+    </div>` : ''}
+
+    <div class="slate-actions-row">
+      ${actionsHtml}
+      <button type="button" class="slate-btn tertiary" id="backToProjectsBtn">← All Projects</button>
+    </div>
+  `;
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  const backBtn = slate.querySelector('#backToProjectsBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => sendUserQuery('Show me your featured projects'));
+  }
+
+  genuiContainerEl.appendChild(slate);
+}
+
+// --------------------------------------------------------------------------
+// 3. SKILLS TAXONOMY MATRIX (4-Quadrant Bento)
+// --------------------------------------------------------------------------
+function renderGenUISkillsMatrix(quadrants) {
+  if (!quadrants || !Array.isArray(quadrants)) return;
+  clearGenUI();
+  lastGenUICall = { type: 'skills', payload: quadrants };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  const groupsHtml = quadrants.map((q, idx) => `
+    <div class="taxonomy-group">
+      <div class="taxonomy-group-header">
+        <span>0${idx + 1} //</span>
+        <span>${escapeHtml(q.title.toUpperCase())}</span>
+      </div>
+      <div class="taxonomy-tags">
+        ${(q.items || []).map(item => `
+          <button class="slate-skill-tag" type="button" data-skill="${escapeHtml(item)}">${escapeHtml(item)}</button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('<div class="slate-divider"></div>');
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">TAXONOMY // TECHNICAL PROFICIENCIES</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
+    
+    <h3 class="slate-title">Skills &amp; Architecture</h3>
+    <p class="slate-lead">Interactive skill taxonomy. Click any technology to query real-world implementations.</p>
+    
+    <div class="slate-taxonomy-list">${groupsHtml}</div>
+  `;
+
+  slate.querySelectorAll('.slate-skill-tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      sendUserQuery(`Tell me about your experience and production projects using ${tag.dataset.skill}`);
+    });
+  });
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  genuiContainerEl.appendChild(slate);
+}
+
+// --------------------------------------------------------------------------
+// 4. CAREER EXPERIENCE CHRONOLOGY
+// --------------------------------------------------------------------------
+function renderGenUIExperienceTimeline(experience) {
+  if (!experience) return;
+  clearGenUI();
+  lastGenUICall = { type: 'experience', payload: experience };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  let list = [];
+  if (experience.professional_experience) {
+    experience.professional_experience.forEach(p => {
+      list.push({
+        year: p.period || '2024 - Present',
+        title: `${p.role} @ ${p.company}`,
+        desc: p.description || ''
+      });
+    });
+  } else if (experience.career_timeline) {
+    experience.career_timeline.forEach(c => {
+      list.push({ year: c.year, title: c.milestone, desc: c.description });
+    });
+  }
+
+  const milestonesHtml = list.slice(0, 4).map((m, idx) => `
+    <div class="slate-milestone-entry">
+      <div class="milestone-meta-row">
+        <span class="milestone-period">${escapeHtml(m.year)}</span>
+        <span class="milestone-index">0${idx + 1}</span>
+      </div>
+      <h4 class="milestone-role">${escapeHtml(m.title)}</h4>
+      <p class="milestone-narrative">${escapeHtml(m.desc)}</p>
+    </div>
+  `).join('<div class="slate-divider"></div>');
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">CHRONOLOGY // CAREER MILESTONES</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
+    
+    <h3 class="slate-title">Experience &amp; Track Record</h3>
+    <p class="slate-lead">Professional history, voice AI specialization, and engineering impact.</p>
+    
+    <div class="slate-milestones-list">${milestonesHtml}</div>
+  `;
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  genuiContainerEl.appendChild(slate);
+}
+
+// --------------------------------------------------------------------------
+// 5. VERIFIED CERTIFICATIONS
+// --------------------------------------------------------------------------
+function renderGenUICertifications(certs) {
+  if (!certs) return;
+  clearGenUI();
+  lastGenUICall = { type: 'certifications', payload: certs };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  const list = Array.isArray(certs) ? certs : (certs.certifications || certs.completed_certifications || []);
+  const certsHtml = list.slice(0, 4).map((c, idx) => {
+    const certImg = c.image || (c.name && c.name.toLowerCase().includes('azure') ? '/static/assests/Screenshot 2026-09-06 131836.png' : null);
+    return `
+    <div class="slate-cert-entry">
+      <div class="milestone-meta-row">
+        <span>${escapeHtml(c.provider || c.issuer || 'Certified')} ${c.date ? `· ${escapeHtml(c.date)}` : ''}</span>
+        <span>0${idx + 1}</span>
+      </div>
+      <h4 class="milestone-role">${escapeHtml(c.name || c.title)}</h4>
+      <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+        ${(c.verify_url || c.link) ? `<a href="${escapeHtml(c.verify_url || c.link)}" target="_blank" rel="noopener noreferrer" class="slate-inline-link">Verify Credential ↗</a>` : ''}
+        ${certImg ? `<button type="button" class="slate-inline-link show-on-tv-btn" data-image="${escapeHtml(certImg)}" data-title="${escapeHtml(c.name || c.title)}" style="background: none; border: none; padding: 0; cursor: pointer;">Display on TV Screen ↗</button>` : ''}
+      </div>
+    </div>
+  `;
+  }).join('<div class="slate-divider"></div>');
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">CREDENTIALS // ACCREDITATIONS</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
+    
+    <h3 class="slate-title">Verified Certifications</h3>
+    <p class="slate-lead">Accredited engineering proficiencies in AI and Cloud architectures.</p>
+    
+    <div class="slate-certs-list">${certsHtml}</div>
+  `;
+
+  slate.querySelectorAll('.show-on-tv-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const imgUrl = btn.dataset.image || '/static/assests/Screenshot 2026-09-06 131836.png';
+      const title = btn.dataset.title || 'AZURE AI AGENTS ASSOCIATE';
+      AvatarController.displayImage(imgUrl, title);
+    });
+  });
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  genuiContainerEl.appendChild(slate);
+}
+
+// --------------------------------------------------------------------------
+// 6. CONTACT INQUIRY SLATE
+// --------------------------------------------------------------------------
+function renderGenUIContactModal() {
+  clearGenUI();
+  lastGenUICall = { type: 'contact', payload: null };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">INQUIRY // GET IN TOUCH</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
+    
+    <h3 class="slate-title">Connect with Pradeep</h3>
+    <p class="slate-lead">Direct communications for engineering collaboration, voice AI consulting, and opportunities.</p>
+
+    <div class="slate-ledger">
+      <div class="ledger-row">
+        <span class="ledger-key">EMAIL</span>
+        <span class="ledger-val">selladuraipradeep@gmail.com</span>
+      </div>
+      <div class="ledger-row">
+        <span class="ledger-key">LOCATION</span>
+        <span class="ledger-val">India (Open to Global Remote)</span>
+      </div>
+      <div class="ledger-row">
+        <span class="ledger-key">SPECIALIZATION</span>
+        <span class="ledger-val">Voice AI · Agentic Systems</span>
+      </div>
+    </div>
+
+    <div class="slate-actions-row">
+      <a href="mailto:selladuraipradeep@gmail.com" class="slate-btn primary">Send Email ↗</a>
+      <a href="https://www.linkedin.com/in/pradeepselladurai/" target="_blank" rel="noopener noreferrer" class="slate-btn secondary">LinkedIn ↗</a>
+      <a href="https://github.com/Cyberpradeep" target="_blank" rel="noopener noreferrer" class="slate-btn secondary">GitHub ↗</a>
+    </div>
+  `;
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  genuiContainerEl.appendChild(slate);
+}
+
+// ==========================================================================
+// QUERY DISPATCHER
+// ==========================================================================
+function sendUserQuery(text, preserveGenUI = false) {
+  const query = (text || '').trim();
+  if (!query) return;
+
+  mediaHandler.initializeAudio(); // Ensure AudioContext is active
+  handleNewUserTurn(query, preserveGenUI);
+
+  // If WebSocket is disconnected, trigger connection immediately
+  if (!geminiClient.isConnected()) {
+    geminiClient.connect();
+  }
+
+  // Send typed query with automatic retry while session initializes
+  async function postQuery(attempt = 1) {
     try {
-        await ensureConnection();
-        await fetch("/text", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ text }),
-        });
-    } catch (err) {
-        appendMessage("assistant", `Connection failed: ${err.message}`);
-    }
-}
-
-function ensureEventsStream() {
-    if (eventsSource) {
-        eventsSource.close();
-    }
-
-    eventsSource = new EventSource("/events");
-    eventsSource.onmessage = (evt) => {
-        try {
-            const payload = JSON.parse(evt.data);
-            handleEventMessage(payload);
-        } catch (_) {
-            // ignore malformed event payloads
-        }
-    };
-
-    eventsSource.onerror = () => {
-        setStatus("events reconnecting");
-    };
-}
-
-async function sendText() {
-    const text = textInputEl.value.trim();
-    if (!text) {
-        return;
-    }
-
-    appendMessage("user", text);
-    textInputEl.value = "";
-
-    try {
-        await ensureConnection();
-        const response = await fetch("/text", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text }),
-        });
-
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            appendMessage("assistant", `Text send failed: ${data.detail || response.statusText}`);
-        }
-    } catch (err) {
-        appendMessage("assistant", `Connection failed: ${err.message}`);
-    }
-}
-
-async function ensureConnection() {
-    initAvatar();
-
-    if (geminiClient.isConnectingOrConnected()) {
-        ensureEventsStream();
-        return;
-    }
-
-    setStatus("connecting");
-
-    try {
-        await mediaHandler.initializeAudio();
+      const res = await fetch('/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: query })
+      });
+      if (res.status === 409 && attempt < 3) {
+        console.warn(`[TEXT] Audio session initializing, retrying in 1s (attempt ${attempt}/3)...`);
         geminiClient.connect();
-        ensureEventsStream();
+        setTimeout(() => postQuery(attempt + 1), 1000);
+      } else if (!res.ok) {
+        console.error('[TEXT] Error sending query:', res.status, res.statusText);
+      }
     } catch (err) {
-        setStatus("connection failed", "error");
-        throw err;
+      console.error('[TEXT] Network error sending query:', err);
+      if (attempt < 3) {
+        geminiClient.connect();
+        setTimeout(() => postQuery(attempt + 1), 1200);
+      }
     }
+  }
+
+  postQuery();
 }
 
-async function startVoiceMode() {
-    markInteraction();
-    setVoiceMode(true);
+// ==========================================================================
+// VOICE BUTTON UI STATE
+// ==========================================================================
+function updateVoiceButtonUI(isPaused = false) {
+  if (!talkBtn) return;
 
-    try {
-        await ensureConnection();
-        if (!mediaHandler.isRecording) {
-            await mediaHandler.startAudio((pcmData) => {
-                if (geminiClient.isConnected()) {
-                    geminiClient.sendAudio(pcmData);
-                }
-            });
+  if (isVoiceActive) {
+    hasEverEngaged = true;
+    talkBtn.classList.add('is-active');
+    talkBtn.classList.remove('is-standby');
+    if (talkBtnTextEl) {
+      talkBtnTextEl.textContent = 'Live Dialogue';
+    }
+  } else {
+    talkBtn.classList.remove('is-active');
+    if (isPaused || hasEverEngaged) {
+      talkBtn.classList.add('is-standby');
+      if (talkBtnTextEl) {
+        talkBtnTextEl.textContent = 'Re-engage Voice';
+      }
+    } else {
+      talkBtn.classList.remove('is-standby');
+      if (talkBtnTextEl) {
+        talkBtnTextEl.textContent = 'Engage Voice Twin';
+      }
+    }
+  }
+}
+
+// ==========================================================================
+// EVENT LISTENERS
+// ==========================================================================
+function setupEventListeners() {
+  // --- Voice-to-Voice Toggle ---
+  if (talkBtn) {
+    talkBtn.addEventListener('click', async () => {
+      mediaHandler.initializeAudio(); // Unlock audio on user interaction
+      if (!isVoiceActive) {
+        // Engaging voice session
+        isVoiceActive = true;
+        updateVoiceButtonUI();
+        if (!geminiClient.isConnected()) {
+          geminiClient.connect();
         }
-        if (window.AvatarController) {
-            window.AvatarController.setAvatarState("listening");
-        }
-    } catch (err) {
-        appendMessage("assistant", `Mic start failed: ${err.message}`);
-        setVoiceMode(false);
-    }
-}
-
-function stopVoiceMode() {
-    mediaHandler.stopAudio();
-    mediaHandler.stopAudioPlayback();
-    setVoiceMode(false);
-    if (window.AvatarController) {
-        window.AvatarController.setAvatarState("idle");
-        window.AvatarController.setSpeaking(false);
-    }
-}
-
-talkBtn.addEventListener("click", async () => {
-    if (!voiceMode) {
-        await startVoiceMode();
-        hideWelcomeBubble();
-        return;
-    }
-
-    stopVoiceMode();
-});
-
-sendBtn.addEventListener("click", () => {
-    sendText();
-});
-
-textInputEl.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-        sendText();
-    }
-});
-
-textInputEl.addEventListener("focus", async () => {
-    if (!geminiClient.isConnected()) {
+        AvatarController.setAvatarState('listening');
         try {
-            await ensureConnection();
-            hideWelcomeBubble();
-        } catch (e) {
-            console.error("Failed to connect on focus:", e);
+          await mediaHandler.startAudio((pcm16Data) => {
+            if (geminiClient.isConnected()) {
+              geminiClient.sendAudio(pcm16Data);
+            }
+          });
+        } catch (err) {
+          console.error('[MIC] Failed to start audio:', err);
+          isVoiceActive = false;
+          updateVoiceButtonUI();
+          AvatarController.setAvatarState('idle');
+          if (activeStatementEl) {
+            activeStatementEl.textContent = 'Microphone access was denied or not supported. You can still type your questions in the box below!';
+          }
         }
-    }
-});
-
-
-initAvatar();
-
-if (welcomeBubbleEl) {
-    requestAnimationFrame(() => {
-        welcomeBubbleEl.classList.add("is-visible");
+      } else {
+        // Disengaging voice session
+        isVoiceActive = false;
+        mediaHandler.stopAudio();
+        mediaHandler.stopAudioPlayback();
+        geminiClient.disconnect();
+        AvatarController.setAvatarState('idle');
+        updateVoiceButtonUI();
+      }
     });
-    // Auto-fade after 8 seconds
-    setTimeout(() => {
-        hideWelcomeBubble();
-    }, 8000);
+  }
+
+  // --- Text Input ---
+  if (sendBtn && textInputEl) {
+    sendBtn.addEventListener('click', () => {
+      sendUserQuery(textInputEl.value);
+      textInputEl.value = '';
+    });
+
+    textInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        sendUserQuery(textInputEl.value);
+        textInputEl.value = '';
+      }
+    });
+  }
+
+  // --- Contact Modal ---
+  if (contactModalBtn) {
+    contactModalBtn.addEventListener('click', () => {
+      renderGenUIContactModal();
+    });
+  }
+
+
+
+  // --- Interactive Click-to-Query on Skill Chips & Specimen Rows ---
+  if (genuiContainerEl) {
+    genuiContainerEl.addEventListener('click', (e) => {
+      const skillTag = e.target.closest('.slate-skill-tag');
+      if (skillTag) {
+        const skillName = skillTag.textContent.trim();
+        sendUserQuery(`Tell me about your experience with ${skillName}`);
+        return;
+      }
+
+      const projectItem = e.target.closest('.slate-project-item');
+      if (projectItem && !e.target.closest('a') && !e.target.closest('button')) {
+        const titleEl = projectItem.querySelector('.slate-project-title');
+        if (titleEl) {
+          const projName = titleEl.textContent.trim();
+          sendUserQuery(`Tell me more details about ${projName}`);
+        }
+      }
+    });
+  }
+
+
+
+  // --- Click Outside to Dismiss GenUI Slate ---
+  document.addEventListener('pointerdown', (e) => {
+    if (!document.body.classList.contains('has-genui-open')) return;
+    // Don't close if clicked inside the GenUI container or on navigation/dock controls
+    if (e.target.closest('#genuiContainer') || 
+        e.target.closest('.bottom-dock') || 
+        e.target.closest('.topbar') || 
+        e.target.closest('#convHistory')) {
+      return;
+    }
+    clearGenUI();
+  });
+
+  // --- Global Keyboard Shortcuts ---
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      clearGenUI();
+    }
+  });
 }
+
+// Start
+window.displayCertification = () => {
+  AvatarController.displayImage('/static/assests/Screenshot 2026-09-06 131836.png', 'AZURE AI AGENTS ASSOCIATE');
+};
+
+document.addEventListener('DOMContentLoaded', init);

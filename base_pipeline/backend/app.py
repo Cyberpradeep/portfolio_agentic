@@ -1,25 +1,43 @@
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import smtplib
+# pyrefly: ignore [missing-import]
 from typing import Type
 import asyncio
 import json
 import os
+# pyrefly: ignore [missing-import]
 from contextlib import asynccontextmanager
 from pathlib import Path
 from google.genai import Client, types
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException, WebSocket
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
 from fastapi.responses import FileResponse, StreamingResponse
+# pyrefly: ignore [missing-import]
 from fastapi.staticfiles import StaticFiles
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
 
 # pyrefly: ignore [missing-import]
 from pipecat.frames.frames import (
     AudioRawFrame,
+    Frame,
     InputAudioRawFrame,
     InputTextRawFrame,
+    InterruptionFrame,
+    LLMFullResponseStartFrame,
     LLMRunFrame,
+    LLMSummarizeContextFrame,
+    LLMTextFrame,
+    TranscriptionFrame,
 )
+# pyrefly: ignore [missing-import]
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 # pyrefly: ignore [missing-import]
 from pipecat.pipeline.pipeline import Pipeline
 # pyrefly: ignore [missing-import]
@@ -29,9 +47,17 @@ from pipecat.pipeline.task import PipelineParams, PipelineTask
 # pyrefly: ignore [missing-import]
 from pipecat.processors.aggregators.llm_response_universal import (
     AssistantTurnStoppedMessage,
+    LLMAssistantAggregatorParams,
     LLMContext,
     LLMContextAggregatorPair,
     UserTurnStoppedMessage,
+)
+# pyrefly: ignore [missing-import]
+from pipecat.processors.aggregators.llm_context_summarizer import SummaryAppliedEvent
+# pyrefly: ignore [missing-import]
+from pipecat.utils.context.llm_context_summarization import (
+    LLMAutoContextSummarizationConfig,
+    LLMContextSummaryConfig,
 )
 # pyrefly: ignore [missing-import]
 from pipecat.serializers.base_serializer import FrameSerializer
@@ -40,12 +66,22 @@ from pipecat.services.google.gemini_live.llm import (
     GeminiLiveLLMService,
     GeminiModalities,
     GeminiVADParams,
-    InputParams,
 )
 # pyrefly: ignore [missing-import]
-from pipecat.services.google.llm import GoogleThinkingConfig
+from pipecat.services.google.llm import GoogleLLMService, GoogleThinkingConfig
 # pyrefly: ignore [missing-import]
 from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams, FastAPIWebsocketTransport
+
+# pyrefly: ignore [missing-import]
+try:
+    # pyrefly: ignore [missing-import]
+    from pipecat.audio.filters.rnnoise_filter import RNNoiseFilter
+    RNNOISE_AVAILABLE = True
+except Exception as _exc:
+    print(f"[RNNOISE] Notice: RNNoiseFilter not available: {_exc}")
+    RNNoiseFilter = None
+    RNNOISE_AVAILABLE = False
+
 import json
 from pathlib import Path
 # pyrefly: ignore [missing-import]
@@ -56,13 +92,16 @@ from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+import time
+import uuid
+from session_manager import session_manager
 
 
 
 BASE_DIR = Path(__file__).resolve().parent
 ROOT = BASE_DIR.parent
 FRONTEND_DIR = ROOT / "frontend"
-MODEL_PATH = FRONTEND_DIR / "model" / "portfolio.vrm"
+MODEL_PATH = FRONTEND_DIR / "model" / "tv_man_titan.glb"
 
 # Load .env from backend folder or root folder
 load_dotenv(BASE_DIR / ".env")
@@ -288,6 +327,19 @@ Returns:
 
 * Completed certifications
 * Certifications in progress
+Note: This automatically projects the verified certificate on the robot's TV screen and displays the credentials panel.
+
+---
+
+show_certifications()
+
+Use when users ask:
+
+* Show me your certifications
+* Display your certificates
+* Let me see your certificates on screen
+
+Instructions: Call this to visually display Pradeep's certificates and project the Microsoft Azure certificate directly onto the robot's TV screen.
 
 ---
 
@@ -446,6 +498,53 @@ class RawPCMSerializer(FrameSerializer):
         return InputAudioRawFrame(audio=data, sample_rate=self._sample_rate, num_channels=1)
 
 
+class LiveTranscriptStreamer(FrameProcessor):
+    def __init__(self, websocket: WebSocket):
+        super().__init__()
+        self.websocket = websocket
+        self._bot_text_accum = ""
+
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+
+        if isinstance(frame, LLMTextFrame):
+            text_chunk = frame.text
+            if text_chunk:
+                self._bot_text_accum += text_chunk
+                try:
+                    await send_transport_event(
+                        self.websocket,
+                        {
+                            "type": "assistant_stream",
+                            "delta": text_chunk,
+                            "text": self._bot_text_accum,
+                            "meta": {"finalized": False}
+                        }
+                    )
+                except Exception as e:
+                    print(f"[STREAM_ERR] {e}")
+
+        elif isinstance(frame, TranscriptionFrame) and direction == FrameDirection.UPSTREAM:
+            user_text = frame.text
+            if user_text:
+                try:
+                    await send_transport_event(
+                        self.websocket,
+                        {
+                            "type": "user_stream",
+                            "text": user_text,
+                            "meta": {"finalized": False}
+                        }
+                    )
+                except Exception as e:
+                    print(f"[STREAM_ERR] {e}")
+
+        elif isinstance(frame, (InterruptionFrame, LLMFullResponseStartFrame)):
+            self._bot_text_accum = ""
+
+        await self.push_frame(frame, direction)
+
+
 class TextMessage(BaseModel):
     text: str
 
@@ -453,9 +552,18 @@ class TextMessage(BaseModel):
 transcript_clients = []
 current_task: PipelineTask | None = None
 _pending_typed_texts: set[str] = set()
+active_websockets: set[WebSocket] = set()
 
 
 async def broadcast_event(payload: dict):
+    # 1. Dispatch directly over active audio WebSockets so voice clients receive tool events
+    for ws in list(active_websockets):
+        try:
+            await send_transport_event(ws, payload)
+        except Exception as exc:
+            print(f"[WS_BROADCAST_ERR] payload={payload.get('type')} error={exc}")
+
+    # 2. Dispatch to all SSE transcript clients
     if not transcript_clients:
         return
     dead = []
@@ -467,6 +575,7 @@ async def broadcast_event(payload: dict):
     for q in dead:
         if q in transcript_clients:
             transcript_clients.remove(q)
+
 
 
 async def send_transcript(role: str, text: str):
@@ -518,11 +627,32 @@ async def get_about(params:FunctionCallParams):
     await params.result_callback(result)
 
 
-async def get_projects(p:FunctionCallParams):
+async def get_projects(p: FunctionCallParams):
     print("[get_projects] called")
     data = load_json("projects.json")
 
-    await p.result_callback( {
+    # Automatically broadcast projects GenUI cards to the frontend
+    cards = []
+    for proj in data["projects"]:
+        techs = proj.get("technologies", [])
+        if isinstance(techs, dict):
+            flat = []
+            for v in techs.values():
+                if isinstance(v, list):
+                    flat.extend(v)
+            techs = flat[:3]
+        elif isinstance(techs, list):
+            techs = techs[:3]
+        cards.append({
+            "id": proj["id"],
+            "name": proj["name"],
+            "summary": proj.get("summary", "")[:80],
+            "techs": techs,
+            "type": proj.get("type", ""),
+        })
+    await broadcast_event({"type": "show_projects", "projects": cards})
+
+    await p.result_callback({
         "total_projects": len(data["projects"]),
         "projects": [
             {
@@ -566,7 +696,7 @@ async def get_project_details(p: FunctionCallParams):
     })
 
 
-async def get_best_project(p:FunctionCallParams):
+async def get_best_project(p: FunctionCallParams):
     print("[get_best_project] called")
 
     await p.result_callback({
@@ -583,27 +713,59 @@ async def get_best_project(p:FunctionCallParams):
     })
 
 
-async def get_skills(p:FunctionCallParams):
+async def get_skills(p: FunctionCallParams):
     print("[get_skills] called")
-    result= load_json("skills.json")
+    result = load_json("skills.json")
     print("[get_skills] loaded skills data")
+
+    quadrants = [
+        {
+            "title": "Languages & Backend",
+            "items": ["Python", "FastAPI", "Flask", "Java", "WebSockets", "MySQL", "MongoDB"]
+        },
+        {
+            "title": "Frontend & Tools",
+            "items": ["React", "JavaScript", "HTML", "CSS", "ThreeJS", "Docker", "Git"]
+        },
+        {
+            "title": "AI & Agentic Systems",
+            "items": ["Agentic AI", "Voice AI", "Gemini Live", "CrewAI", "Pipecat", "RAG", "Tool Calling"]
+        },
+        {
+            "title": "Concepts & Cloud",
+            "items": ["Context Engineering", "Prompt Engineering", "Azure", "Railway", "HuggingFace"]
+        }
+    ]
+    # Automatically broadcast skills matrix to the frontend
+    await broadcast_event({"type": "show_skills", "skills": [], "quadrants": quadrants})
     await p.result_callback(result)
 
 
-async def get_experience(p:FunctionCallParams):
-    result= load_json("experience.json")
+async def get_experience(p: FunctionCallParams):
+    result = load_json("experience.json")
     print("[get_experience] loaded experience data")
+    # Automatically broadcast experience timeline to the frontend
+    await broadcast_event({"type": "show_experience", "experience": result})
     await p.result_callback(result)
 
 
-async def get_certifications(p:FunctionCallParams):
-    result =load_json("certifications.json")
+async def get_certifications(p: FunctionCallParams):
+    result = load_json("certifications.json")
     print("[get_certifications] loaded certifications data")
+    primary_names = ["Microsoft Azure AI Fundamentals", "GitHub Foundations", "Distributed Systems", "Edge Computing"]
+    primary = []
+    for c in result.get("completed_certifications", []):
+        if c["name"] in primary_names:
+            primary.append(c)
+    if not primary:
+        primary = result.get("completed_certifications", [])[:4]
+    # Automatically broadcast certifications grid to the frontend
+    await broadcast_event({"type": "show_certifications", "certifications": primary})
     await p.result_callback(result)
 
 
-async def get_achievements(p:FunctionCallParams):
-    result= load_json("achievements.json")
+async def get_achievements(p: FunctionCallParams):
+    result = load_json("achievements.json")
     print("[get_achievements] loaded achievements data")
     await p.result_callback(result)
 
@@ -620,43 +782,42 @@ async def search_faq(p: FunctionCallParams):
     await p.result_callback({"count": len(results), "results": results[:5]})
 
 
-async def send_contact_email(p:FunctionCallParams):
+async def send_contact_email(p: FunctionCallParams):
     print("[send_contact_email] called")
-    user_email=p.arguments.get("user_email")
-    user_message=p.arguments.get("user_message")
-    email_subject=p.arguments.get("email_subject")
+    user_email = p.arguments.get("user_email")
+    user_message = p.arguments.get("user_message")
+    email_subject = p.arguments.get("email_subject")
 
     sender_email = os.getenv("SENDER_EMAIL")
     sender_password = os.getenv("SENDER_PASSWORD")
-    receiver_email=user_email
 
-    msg=MIMEMultipart()
-    msg['From']=receiver_email
-    msg['To']=sender_email
-    msg['Subject']=email_subject
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['Reply-To'] = user_email
+    msg['To'] = sender_email
+    msg['Subject'] = f"[Portfolio Contact] {email_subject}"
 
-    body=f"""
-    From: {user_email}
-    Subject: {email_subject}
-    
-    {user_message}
-    """
+    body = f"""From: {user_email}
+Subject: {email_subject}
 
-    msg.attach(MIMEText(body,"plain"))
+{user_message}
+"""
+
+    msg.attach(MIMEText(body, "plain"))
 
     try:
-        server=smtplib.SMTP('smtp.gmail.com',587)
+        server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
-        server.login(sender_email,sender_password)
+        server.login(sender_email, sender_password)
         server.send_message(msg)
         server.quit()
 
-        print("[email] EMail Successfully sent")
-        await p.result_callback({"success":True,"message":"Email sent successfully"})
+        print("[email] Email successfully sent")
+        await p.result_callback({"success": True, "message": "Email sent successfully"})
 
     except Exception as e:
-        print(f"[email] EMail Sending Failed")
-        await p.result_callback({"success":False,"message":"Email Sending failed", "error":str(e)})
+        print(f"[email] Email sending failed: {e}")
+        await p.result_callback({"success": False, "message": "Email sending failed", "error": str(e)})
 
 async def send_resume(p: FunctionCallParams):
     print("[send_resume] called")
@@ -789,8 +950,10 @@ async def show_certifications(p: FunctionCallParams):
         for c in data.get("completed_certifications", []):
             if c["name"] in primary_names:
                 primary.append(c)
+        if not primary:
+            primary = data.get("completed_certifications", [])[:4]
         await broadcast_event({"type": "show_certifications", "certifications": primary})
-        await p.result_callback({"success": True, "message": "Showing primary certifications in UI"})
+        await p.result_callback({"success": True, "message": "Showing primary certifications in UI and TV screen"})
     except Exception as e:
         print(f"[show_certifications] error: {e}")
         await p.result_callback({"success": False, "message": str(e)})
@@ -807,8 +970,16 @@ tools = [
             )
         ),
         types.FunctionDeclaration(
+            name="get_projects",
+            description="Get complete list of all Pradeep's projects, technologies, and summaries. Automatically displays the interactive project slate on screen.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={},
+            )
+        ),
+        types.FunctionDeclaration(
             name="get_project_details",
-            description="Get complete details about a specific project including technologies, architecture, features, challenges, solutions and learnings.",
+            description="Get complete details about a specific project including technologies, architecture, features, challenges, solutions, and GitHub/demo links. Automatically displays the detailed project specimen card on screen.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={
@@ -822,7 +993,7 @@ tools = [
         ),
         types.FunctionDeclaration(
             name="get_best_project",
-            description="Returns the strongest project that best represents Pradeep's skills and experience.",
+            description="Returns the strongest flagship project that best represents Pradeep's skills and experience.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -844,7 +1015,7 @@ tools = [
         ),
         types.FunctionDeclaration(
             name="get_skills",
-            description="Get Pradeep's skills, technologies, frameworks, programming languages and expertise. IMPORTANT: After calling this tool and receiving skill data, you MUST immediately also call show_skills with the relevant skill names as a list so they appear visually on screen. Never just speak the skills without also calling show_skills.",
+            description="Get Pradeep's skills, technologies, frameworks, programming languages and expertise. Automatically displays the interactive skills taxonomy matrix on screen.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -852,7 +1023,7 @@ tools = [
         ),
         types.FunctionDeclaration(
             name="get_experience",
-            description="Get internship experience, volunteer experience, industry exposure, professional journey and work experience.",
+            description="Get internship experience, volunteer experience, industry exposure, professional journey and work experience. Automatically displays the career chronology timeline on screen.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -860,7 +1031,7 @@ tools = [
         ),
         types.FunctionDeclaration(
             name="get_certifications",
-            description="Get certifications completed and certifications currently being pursued.",
+            description="Get certifications completed and certifications currently being pursued. Automatically displays the verified credentials card on screen and projects the certificate onto the 3D robot TV screen.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -891,24 +1062,24 @@ tools = [
 
         types.FunctionDeclaration(
             name="send_contact_email",
-            description="Send an email containing the user's contact informaation and message to the team",
+            description="Send an email containing the user's contact information and message to Pradeep.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={
-                    "user_email":types.Schema(
+                    "user_email": types.Schema(
                         type=types.Type.STRING,
                         description="User email address"
                     ),
-                    "user_message":types.Schema(
+                    "user_message": types.Schema(
                         type=types.Type.STRING,
-                        description="Query or the user wants to send"
+                        description="Query or message the user wants to send"
                     ),
-                    "email_subject":types.Schema(
+                    "email_subject": types.Schema(
                         type=types.Type.STRING,
-                        description="A brief, 2 to 5 word subject line generated by AI summarizing the user messagee",
+                        description="A brief, 2 to 5 word subject line generated by AI summarizing the user message",
                     ),
                 },
-                required=["user_email","user_message","email_subject"]
+                required=["user_email", "user_message", "email_subject"]
             )
         ),
 
@@ -944,7 +1115,7 @@ tools = [
         
         types.FunctionDeclaration(
             name="show_projects",
-            description="Displays all of Pradeep's projects as interactive orbit cards floating around the avatar on screen. Call this ALWAYS when the user asks to list, show, or browse all projects. Each card is clickable and will trigger a detailed view.",
+            description="Displays all of Pradeep's projects as interactive orbit cards floating around the avatar on screen. Call this when the user asks to list, show, or browse projects.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -953,7 +1124,7 @@ tools = [
 
         types.FunctionDeclaration(
             name="show_skills",
-            description="Visually spawns floating skill icons on the user's screen. Call this when discussing your programming languages, frameworks, or databases.",
+            description="Visually spawns floating skill icons on the user's screen. Call this when discussing programming languages, frameworks, or databases.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={
@@ -969,7 +1140,7 @@ tools = [
         
         types.FunctionDeclaration(
             name="show_experience",
-            description="Visually displays Pradeep's work experience and career timeline on the screen. Call this ALWAYS when the user asks about experience, internships, or career journey.",
+            description="Visually displays Pradeep's work experience and career timeline on the screen. Call this when the user asks about experience, internships, or career journey.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -978,7 +1149,7 @@ tools = [
         
         types.FunctionDeclaration(
             name="show_certifications",
-            description="Displays Pradeep's most valuable certifications on the screen as a holographic grid around the avatar. Call this ALWAYS when the user asks about certifications or courses completed.",
+            description="Displays Pradeep's most valuable certifications on the screen and projects the certificate onto the 3D robot TV screen. Call this when the user asks about certifications or courses completed.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -1009,6 +1180,15 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 @app.get("/")
 async def root():
     return FileResponse(str(FRONTEND_DIR / "index.html"))
+
+
+@app.get("/favicon.ico")
+@app.get("/favicon.svg")
+async def favicon():
+    fav = FRONTEND_DIR / "favicon.svg"
+    if fav.exists():
+        return FileResponse(str(fav), media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Favicon not found")
 
 
 @app.get("/model.glb")
@@ -1043,6 +1223,11 @@ async def events():
     return StreamingResponse(stream(), media_type="text/event-stream")
 
 
+class TextMessage(BaseModel):
+    text: str
+    session_id: str | None = None
+
+
 @app.post("/text")
 async def send_text(message: TextMessage):
     global current_task
@@ -1052,32 +1237,44 @@ async def send_text(message: TextMessage):
     if current_task is None:
         raise HTTPException(status_code=409, detail="No active audio session")
 
+    if message.session_id:
+        session_manager.reset_activity(message.session_id)
+
     _pending_typed_texts.add(text)          # <-- mark as typed
     print(f"[TEXT_INPUT] queued text={text!r}")
     await current_task.queue_frames([InputTextRawFrame(text=text)])
     return {"ok": True}
 
 
+
 @app.websocket("/audio")
 async def audio_socket(websocket: WebSocket):
     await websocket.accept()
-    await run_session(websocket)
+    query_params = dict(websocket.query_params)
+    session_id = query_params.get("session_id")
+    if not session_id or not session_id.strip():
+        session_id = f"sess_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    await run_session(websocket, session_id)
 
 
-async def run_session(websocket: WebSocket):
+async def run_session(websocket: WebSocket, session_id: str):
     global current_task
+    active_websockets.add(websocket)
 
     if not GEMINI_API_KEY:
         await websocket.close(code=1011, reason="Missing GEMINI_API_KEY")
         return
 
-    print("[SESSION] websocket accepted, starting run_session")
-    await send_transport_event(websocket, {"type": "status", "state": "connected"})
+    session_data = session_manager.get_or_create(session_id)
+    session_data.is_active = True
+    print(f"[SESSION] websocket accepted for session_id={session_id}, pre-seeded {len(session_data.messages)} prior messages")
+    await send_transport_event(websocket, {"type": "status", "state": "connected", "session_id": session_id})
 
     transport = FastAPIWebsocketTransport(
         websocket=websocket,
         params=FastAPIWebsocketParams(
             audio_in_enabled=True,
+            audio_in_filter=RNNoiseFilter() if RNNOISE_AVAILABLE else None,
             audio_out_enabled=True,
             add_wav_header=False,
             audio_in_sample_rate=16000,
@@ -1085,24 +1282,27 @@ async def run_session(websocket: WebSocket):
             serializer=RawPCMSerializer(sample_rate=16000),
         ),
     )
+    if RNNOISE_AVAILABLE:
+        print("[SESSION] RNNoise neural noise suppression active on inbound audio")
 
     llm = GeminiLiveLLMService(
         api_key=GEMINI_API_KEY,
-        model=MODEL,
-        system_instruction=SYSTEM_INSTRUCTION,
-        tools=tools,
-        voice_id=VOICE_ID,
-        inference_on_context_initialization=True,
-        params=InputParams(
+        settings=GeminiLiveLLMService.Settings(
+            model=MODEL,
+            voice=VOICE_ID,
             modalities=GeminiModalities.AUDIO,
             vad=GeminiVADParams(silence_duration_ms=500),
             thinking=GoogleThinkingConfig(thinking_budget=0),
         ),
+        system_instruction=SYSTEM_INSTRUCTION,
+        tools=tools,
+        inference_on_context_initialization=True,
         http_options={"api_version": "v1beta"},
     )
 
     llm.register_function("get_about", get_about)
     llm.register_function("get_projects", get_projects)
+    llm.register_function("get_project", get_project_details)
     llm.register_function("get_project_details", get_project_details)
     llm.register_function("get_best_project", get_best_project)
     llm.register_function("get_skills", get_skills)
@@ -1118,22 +1318,53 @@ async def run_session(websocket: WebSocket):
     llm.register_function("show_experience", show_experience)
     llm.register_function("show_certifications", show_certifications)
 
-    context = LLMContext(messages=[])
-    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(context)
+    context = LLMContext(messages=list(session_data.messages))
+
+    # Out-of-band context summarizer: uses GoogleLLMService in the background to compact history
+    # when tokens or message counts grow, preserving sub-second voice latency on Gemini Live.
+    summarizer_llm = GoogleLLMService(
+        api_key=GEMINI_API_KEY,
+        settings=GoogleLLMService.Settings(model="gemini-2.5-flash"),
+    )
+
+    auto_summary_config = LLMAutoContextSummarizationConfig(
+        max_context_tokens=5000,
+        max_unsummarized_messages=12,
+        summary_config=LLMContextSummaryConfig(
+            target_context_tokens=2000,
+            min_messages_after_summary=4,
+            summary_message_template="Conversation context summary: {summary}",
+            llm=summarizer_llm,
+        ),
+    )
+
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        assistant_params=LLMAssistantAggregatorParams(
+            enable_auto_context_summarization=True,
+            auto_context_summarization_config=auto_summary_config,
+        ),
+    )
     state = {"last_user_text": ""}
 
     @user_aggregator.event_handler("on_user_turn_started")
     async def on_user_started(processor, strategy, message):
+        session_manager.reset_activity(session_id)
         print("[TURN] user_turn_started")
         await send_transport_event(websocket, {"type": "status", "state": "listening"})
 
     @user_aggregator.event_handler("on_user_turn_stopped")
     async def on_user_stopped(processor, strategy, message):
+        session_manager.reset_activity(session_id)
         text = _extract_message_text(message)
         print(f"[user] transcript : {message.content}")
         if not text:
             return
         state["last_user_text"] = text.strip()
+
+        # Record user turn in context history
+        session_data.messages.append({"role": "user", "content": text.strip()})
+        session_manager.save_context(session_id, session_data.messages)
 
         if text in _pending_typed_texts:
             # Typed message — frontend already rendered it, don't re-send as transcript
@@ -1158,6 +1389,23 @@ async def run_session(websocket: WebSocket):
         await send_transport_event(websocket, {"type": "status", "state": "speaking"})
 
 
+    async def on_inactivity_timeout():
+        print(f"[WATCHDOG] 60s inactivity reached for session={session_id}. Pausing session.")
+        session_data.is_active = False
+        try:
+            await send_transport_event(
+                websocket,
+                {
+                    "type": "session_paused",
+                    "session_id": session_id,
+                    "reason": "inactivity",
+                },
+            )
+            await task.cancel()
+            await websocket.close(code=1000, reason="Inactivity standby")
+        except Exception as exc:
+            print(f"[WATCHDOG] exception during session pause: {exc}")
+
     @assistant_aggregator.event_handler("on_assistant_turn_stopped")
     async def on_assistant_stopped(processor, message: AssistantTurnStoppedMessage):
         text = _extract_message_text(message)
@@ -1173,6 +1421,8 @@ async def run_session(websocket: WebSocket):
             effective_text = ""
 
         if effective_text:
+            session_data.messages.append({"role": "assistant", "content": effective_text})
+            session_manager.save_context(session_id, session_data.messages)
             await send_transport_event(
                 websocket,
                 {
@@ -1184,11 +1434,34 @@ async def run_session(websocket: WebSocket):
 
         await send_transport_event(websocket, {"type": "turn_complete"})
         await send_transport_event(websocket, {"type": "status", "state": "idle"})
+        session_manager.start_watchdog(session_id, timeout_seconds=60, on_timeout=on_inactivity_timeout)
+
+    @assistant_aggregator.event_handler("on_summary_applied")
+    async def on_summary_applied(aggregator, summarizer, event: SummaryAppliedEvent):
+        print(
+            f"[CONTEXT_SUMMARIZER] Context summarized: {event.original_message_count} -> "
+            f"{event.new_message_count} messages ({event.summarized_message_count} summarized, "
+            f"{event.preserved_message_count} preserved)"
+        )
+        await send_transport_event(
+            websocket,
+            {
+                "type": "context_summarized",
+                "original_count": event.original_message_count,
+                "new_count": event.new_message_count,
+                "summarized_count": event.summarized_message_count,
+                "preserved_count": event.preserved_message_count,
+            },
+        )
+
+
+    live_streamer = LiveTranscriptStreamer(websocket)
 
     pipeline = Pipeline([
         transport.input(),
         user_aggregator,
         llm,
+        live_streamer,
         transport.output(),
         assistant_aggregator,
     ])
@@ -1205,14 +1478,17 @@ async def run_session(websocket: WebSocket):
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(_, __):
-        print("[TRANSPORT] client_connected")
-        await send_transport_event(websocket, {"type": "status", "state": "idle"})
+        print(f"[TRANSPORT] client_connected for session={session_id}")
+        await send_transport_event(websocket, {"type": "status", "state": "idle", "session_id": session_id})
+        session_manager.start_watchdog(session_id, timeout_seconds=60, on_timeout=on_inactivity_timeout)
         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_, __):
-        print("[TRANSPORT] client_disconnected")
-        await send_transport_event(websocket, {"type": "status", "state": "disconnected"})
+        print(f"[TRANSPORT] client_disconnected for session={session_id}")
+        session_manager.cancel_watchdog(session_id)
+        session_data.is_active = False
+        await send_transport_event(websocket, {"type": "status", "state": "disconnected", "session_id": session_id})
 
     runner = PipelineRunner(handle_sigint=False)
     try:
@@ -1221,10 +1497,14 @@ async def run_session(websocket: WebSocket):
         print(f"[SESSION_ERROR] {exc}")
         await send_transport_event(websocket, {"type": "error", "message": str(exc)})
     finally:
+        session_manager.cancel_watchdog(session_id)
+        session_data.is_active = False
+        session_manager.save_context(session_id, session_data.messages)
         if current_task is task:
             current_task = None
-        print("[SESSION] run_session finished")
-        await send_transport_event(websocket, {"type": "status", "state": "disconnected"})
+        active_websockets.discard(websocket)
+        print(f"[SESSION] run_session finished for session={session_id}")
+        await send_transport_event(websocket, {"type": "status", "state": "disconnected", "session_id": session_id})
 
 
 if __name__ == "__main__":

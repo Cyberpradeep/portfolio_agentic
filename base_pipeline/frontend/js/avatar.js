@@ -1,884 +1,513 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { VRMLoaderPlugin, VRMUtils, VRMHumanBoneName } from "@pixiv/three-vrm";
-import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from "@pixiv/three-vrm-animation";
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-const MODEL_URL = "/static/model/portfolio.vrm";
-const MODEL_YAW = Math.PI;
-const ANIMATIONS_BASE_URL = "/static/animations";
-const VRMA_FILES = {
-    Angry: "Angry.vrma",
-    Blush: "Blush.vrma",
-    Clapping: "Clapping.vrma",
-    Goodbye: "Goodbye.vrma",
-    Jump: "Jump.vrma",
-    LookAround: "LookAround.vrma",
-    Relax: "Relax.vrma",
-    Sad: "Sad.vrma",
-    Sleepy: "Sleepy.vrma",
-    Surprised: "Surprised.vrma",
-    Thinking: "Thinking.vrma",
+import { tvScreenManager, ScreenModes } from './tvScreenManager.js';
+import { animationController } from './animationController.js';
+import { mechanicalController } from './mechanicalController.js';
+import { soundFX } from './soundFx.js';
+
+let scene, camera, renderer, controls;
+let screenPointLight, keyLight, fillLight, rimLight, hemiLight;
+let shadowPlane;
+let clock = new THREE.Clock();
+let modelRoot = null;
+let pointer = new THREE.Vector2();
+let isInitialized = false;
+let idleCameraTimer = null;
+let isGenUIActive = false;
+
+const CAMERA_PRESETS = {
+  FULL_BODY: { pos: new THREE.Vector3(0, 1.85, 4.3), lookAt: new THREE.Vector3(0, 1.75, 0) },
+  // Locomotive Passport-Size TV-Head Closeup (Centered overview)
+  FACE_CAM: { pos: new THREE.Vector3(0, 2.30, 2.85), lookAt: new THREE.Vector3(0, 2.30, 0) },
+  // Dedicated Screen Inspection Zoom
+  SCREEN_CLOSEUP: { pos: new THREE.Vector3(0, 2.32, 1.90), lookAt: new THREE.Vector3(0, 2.32, 0) },
+  // Studio 3-Quarter Angle
+  STUDIO_3Q: { pos: new THREE.Vector3(-1.8, 1.95, 3.8), lookAt: new THREE.Vector3(0, 1.75, 0) }
 };
 
-const STATE_ANIMS = {
-    listening: "LookAround",
-    thinking: "Thinking",
+const cameraTarget = {
+  pos: new THREE.Vector3(0, 1.85, 4.3),
+  lookAt: new THREE.Vector3(0, 1.75, 0)
 };
 
-const IDLE_SEQUENCE = [
-    "LookAround",
-    "Thinking",
-    "Sad",
-    "Angry",
-    "LookAround",
-    "Thinking",
-    "Blush",
-    "Thinking",
-];
-const IDLE_INITIAL_DELAY_RANGE = [0, 0];
-const IDLE_GAP_SECONDS = 0;
-const IDLE_FADE_SECONDS = 0.6;
-const IDLE_TIME_SCALE = 0.7;
-const IDLE_TRANSITION_SCALE = 0.45;
-const IDLE_TRANSITION_RAMP_SECONDS = 0.8;
-const IDLE_HOLD_SECONDS = 0;
+function initScene(canvasId) {
+  if (isInitialized) return;
 
-const state = {
-    mode: "idle",
-    isSpeaking: false,
-};
+  const canvas = document.getElementById(canvasId);
+  const container = canvas ? canvas.parentElement : document.body;
 
-let renderer;
-let scene;
-let camera;
-let controls;
-let clock;
-let statusEl;
+  // 1. Scene
+  scene = new THREE.Scene();
+  scene.background = null;
 
-let currentVrm;
-let mixer;
-let currentAction;
-let animationGroup;
-let timeScaleRamp = null;
+  // 2. Camera
+  const width = container.clientWidth || window.innerWidth;
+  const height = container.clientHeight || window.innerHeight;
+  camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 500);
+  camera.position.copy(cameraTarget.pos);
 
-let idleSequenceTimer = null;
-let idleSequenceIndex = 0;
+  // 3. Renderer with Native Hardware MSAA & ACESFilmic Tone Mapping
+  renderer = new THREE.WebGLRenderer({
+    canvas: canvas || undefined,
+    antialias: true,
+    alpha: true,
+    powerPreference: 'high-performance'
+  });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
 
-const rig = {
-    head: null,
-    neck: null,
-    spine: null,
-    lUpper: null,
-    rUpper: null,
-    lLower: null,
-    rLower: null,
-    lHand: null,
-    rHand: null,
-    lIndex: [],
-    lMiddle: [],
-    lRing: [],
-    lLittle: [],
-    lThumb: [],
-    rIndex: [],
-    rMiddle: [],
-    rRing: [],
-    rLittle: [],
-    rThumb: [],
-};
-const baseRotations = new Map();
-let manualReady = false;
-let lipPhase = 0;
+  // Maximize texture anisotropy for crisp angles
+  if (tvScreenManager && tvScreenManager.texture) {
+    tvScreenManager.texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 16);
+  }
 
-function setStatus(text) {
-    if (statusEl) {
-        statusEl.textContent = text;
-    }
+  if (!canvas) {
+    container.appendChild(renderer.domElement);
+  }
+
+  // 4. OrbitControls
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.maxPolarAngle = Math.PI / 2 + 0.05;
+  controls.minDistance = 1.2;
+  controls.maxDistance = 10.0;
+  controls.target.copy(cameraTarget.lookAt);
+
+  // 5. Studio Lighting
+  setupStudioLighting();
+
+  // 6. Seamless Ground Shadow
+  setupStudioStage();
+
+  // 7. TV screen initial loading mode
+  tvScreenManager.setMode(ScreenModes.LOADING);
+
+  // 8. Load Titan GLB Model
+  loadTitanModel();
+
+  // 9. Window Listeners
+  window.addEventListener('resize', onWindowResize);
+  window.addEventListener('mousemove', onMouseMove);
+
+  // 10. Start Animation Loop
+  animate();
+
+  isInitialized = true;
 }
 
-function stopCurrentAction() {
-    if (mixer) {
-        mixer.stopAllAction();
-    }
-    currentAction = null;
+function setupStudioLighting() {
+  hemiLight = new THREE.HemisphereLight(0xffffff, 0xc8c5be, 2.5);
+  hemiLight.position.set(0, 20, 0);
+  scene.add(hemiLight);
+
+  keyLight = new THREE.DirectionalLight(0xfffdf7, 3.2);
+  keyLight.position.set(3.8, 6.8, 4.8);
+  keyLight.target.position.set(0, 1.8, 0);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.width = 2048;
+  keyLight.shadow.mapSize.height = 2048;
+  keyLight.shadow.camera.near = 0.5;
+  keyLight.shadow.camera.far = 25;
+  keyLight.shadow.camera.left = -3.5;
+  keyLight.shadow.camera.right = 3.5;
+  keyLight.shadow.camera.top = 4.5;
+  keyLight.shadow.camera.bottom = -1.0;
+  keyLight.shadow.bias = -0.0004;
+  scene.add(keyLight);
+  scene.add(keyLight.target);
+
+  fillLight = new THREE.DirectionalLight(0xe5ecf7, 1.8);
+  fillLight.position.set(-4.2, 3.8, 3.2);
+  fillLight.target.position.set(0, 1.8, 0);
+  scene.add(fillLight);
+  scene.add(fillLight.target);
+
+  rimLight = new THREE.DirectionalLight(0xffffff, 2.4);
+  rimLight.position.set(0, 5.2, -4.2);
+  rimLight.target.position.set(0, 1.8, 0);
+  scene.add(rimLight);
+  scene.add(rimLight.target);
+
+  const chestFill = new THREE.PointLight(0xffffff, 1.2, 6, 1.2);
+  chestFill.position.set(0, 1.8, 2.6);
+  scene.add(chestFill);
+
+  screenPointLight = new THREE.PointLight(0x38bdf8, 2.2, 5, 1.5);
+  screenPointLight.position.set(0, 2.75, 0.45);
+  scene.add(screenPointLight);
 }
 
-function clearIdleSequence() {
-    if (idleSequenceTimer) {
-        clearTimeout(idleSequenceTimer);
-        idleSequenceTimer = null;
-    }
+function setupStudioStage() {
+  // Seamless soft contact shadow receiver on infinite studio floor
+  const groundGeo = new THREE.PlaneGeometry(30, 30);
+  const groundMat = new THREE.ShadowMaterial({
+    opacity: 0.28
+  });
+  shadowPlane = new THREE.Mesh(groundGeo, groundMat);
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.position.y = 0.0;
+  shadowPlane.receiveShadow = true;
+  scene.add(shadowPlane);
 }
 
-function scheduleIdleStep(delaySeconds) {
-    clearIdleSequence();
-    idleSequenceTimer = setTimeout(runIdleStep, delaySeconds * 1000);
-}
+function runIntroSequence() {
+  const greetingEl = document.getElementById('introGreeting');
+  const nameEl = document.getElementById('introName');
+  const actionEl = document.getElementById('introAction');
 
-function runIdleStep() {
-    if (!mixer || animationClips.size === 0) {
-        return;
-    }
+  function splitIntoAnimatedWordsAndChars(element, text, startDelayMs, charStepMs = 50) {
+    if (!element) return startDelayMs + (text.length * charStepMs);
+    element.innerHTML = '';
+    
+    // Split by spaces so each word is wrapped in an unbreakable .intro-word container
+    const words = text.split(' ');
+    let currentDelay = startDelayMs;
 
-    const name = IDLE_SEQUENCE[idleSequenceIndex % IDLE_SEQUENCE.length];
-    idleSequenceIndex += 1;
+    words.forEach((word, wordIdx) => {
+      const wordSpan = document.createElement('span');
+      wordSpan.className = 'intro-word';
 
-    const clip = animationClips.get(name);
-    if (!clip) {
-        scheduleIdleStep(IDLE_GAP_SECONDS);
-        return;
-    }
+      const chars = Array.from(word);
+      chars.forEach((char) => {
+        const charSpan = document.createElement('span');
+        charSpan.className = 'intro-char';
+        charSpan.textContent = char;
+        charSpan.style.setProperty('--char-delay', `${currentDelay}ms`);
+        wordSpan.appendChild(charSpan);
+        currentDelay += charStepMs;
+      });
 
-    playClip(name, {
-        loop: THREE.LoopOnce,
-        fadeSeconds: IDLE_FADE_SECONDS,
-        timeScale: IDLE_TIME_SCALE,
-        startTimeScale: IDLE_TRANSITION_SCALE,
-        rampDuration: IDLE_TRANSITION_RAMP_SECONDS,
-        clampWhenFinished: false,
+      element.appendChild(wordSpan);
+
+      // Add unbreakable space between words
+      if (wordIdx < words.length - 1) {
+        const spaceSpan = document.createElement('span');
+        spaceSpan.className = 'intro-space';
+        spaceSpan.innerHTML = '&nbsp;';
+        element.appendChild(spaceSpan);
+        currentDelay += Math.round(charStepMs * 0.7);
+      }
     });
-    animationGroup = "idle";
-    const clipDuration = clip.duration / IDLE_TIME_SCALE;
-    const nextDelay = Math.max(clipDuration - IDLE_FADE_SECONDS * 1.2, 0.2) + IDLE_HOLD_SECONDS + IDLE_GAP_SECONDS;
-    scheduleIdleStep(nextDelay);
+
+    return currentDelay;
+  }
+
+  // 1. "Vanakkam," (deliberate, warm character entrance)
+  let delay = 250;
+  delay = splitIntoAnimatedWordsAndChars(greetingEl, 'Vanakkam,', delay, 80);
+
+  // 2. Deliberate pause, then "Pradeep Selladurai" (unbroken words, bold, confident pace)
+  delay += 320;
+  delay = splitIntoAnimatedWordsAndChars(nameEl, 'Pradeep Selladurai', delay, 65);
+
+  // 3. Deliberate pause, then "Talk with me" (clean, rhythmic pace)
+  delay += 380;
+  delay = splitIntoAnimatedWordsAndChars(actionEl, 'Talk with me', delay, 55);
+
+  return delay + 800; // Generous hold duration
 }
 
-function startIdleSequence() {
-    if (idleSequenceTimer) {
-        return;
+function loadTitanModel() {
+  const loadingProgress = document.getElementById('loadingProgress');
+  const loadingScreen = document.getElementById('loadingOverlay');
+  const percentEl = document.getElementById('introPercent');
+  const statusTextEl = document.getElementById('introStatusText');
+
+  // Start the character-by-character intro animation
+  const introDuration = runIntroSequence();
+  let isModelLoaded = false;
+  let isIntroFinished = false;
+  let isDismissing = false;
+
+  function tryDismissLoading() {
+    if (isModelLoaded && isIntroFinished && !isDismissing) {
+      isDismissing = true;
+      if (statusTextEl) statusTextEl.textContent = 'STAGE READY';
+
+      // Step 1: Smoothly float the intro text upwards
+      if (loadingScreen) loadingScreen.classList.add('is-exiting');
+
+      // Step 2: Smooth camera transition + sound FX + TV screen initialization
+      setTimeout(() => {
+        soundFX.playPowerSurge();
+        tvScreenManager.setMode(ScreenModes.IDLE);
+        if (loadingScreen) loadingScreen.classList.add('is-hidden');
+      }, 550);
     }
-    idleSequenceIndex = 0;
-    const [minDelay, maxDelay] = IDLE_INITIAL_DELAY_RANGE;
-    const delay = minDelay + Math.random() * (maxDelay - minDelay);
-    if (delay <= 0) {
-        runIdleStep();
-        return;
-    }
-    scheduleIdleStep(delay);
-}
+  }
 
-function playClip(name, options = {}) {
-    const clip = animationClips.get(name);
-    if (!clip || !mixer) {
-        return;
-    }
+  setTimeout(() => {
+    isIntroFinished = true;
+    tryDismissLoading();
+  }, introDuration);
 
-    const nextAction = mixer.clipAction(clip);
-    if (currentAction === nextAction) {
-        return;
-    }
-
-    const fadeSeconds = typeof options.fadeSeconds === "number" ? options.fadeSeconds : 0.25;
-
-    nextAction.reset();
-    nextAction.setLoop(options.loop || THREE.LoopRepeat, Infinity);
-    const clamp = typeof options.clampWhenFinished === "boolean" ? options.clampWhenFinished : true;
-    nextAction.clampWhenFinished = clamp;
-    const startScale = typeof options.startTimeScale === "number" ? options.startTimeScale : options.timeScale;
-    if (typeof startScale === "number") {
-        nextAction.timeScale = startScale;
-    }
-    if (currentAction) {
-        nextAction.crossFadeFrom(currentAction, fadeSeconds, false);
-    } else {
-        nextAction.fadeIn(fadeSeconds);
-    }
-    nextAction.play();
-
-    currentAction = nextAction;
-
-    if (typeof options.rampDuration === "number" && typeof options.timeScale === "number") {
-        const startTime = clock ? clock.getElapsedTime() : 0;
-        timeScaleRamp = {
-            action: nextAction,
-            startScale: typeof startScale === "number" ? startScale : options.timeScale,
-            endScale: options.timeScale,
-            startTime,
-            duration: Math.max(options.rampDuration, 0.01),
-        };
-    }
-}
-
-function updateTimeScaleRamp(elapsed) {
-    if (!timeScaleRamp || !timeScaleRamp.action) {
-        return;
-    }
-    if (timeScaleRamp.action !== currentAction) {
-        timeScaleRamp = null;
-        return;
-    }
-    const t = (elapsed - timeScaleRamp.startTime) / timeScaleRamp.duration;
-    if (t >= 1) {
-        timeScaleRamp.action.timeScale = timeScaleRamp.endScale;
-        timeScaleRamp = null;
-        return;
-    }
-    const scale = timeScaleRamp.startScale + (timeScaleRamp.endScale - timeScaleRamp.startScale) * Math.max(0, t);
-    timeScaleRamp.action.timeScale = scale;
-}
-
-function updateAnimationState() {
-    if (!mixer || animationClips.size === 0) {
-        return;
-    }
-
-    const group = state.isSpeaking ? "speaking" : state.mode;
-
-    if (group === "speaking") {
-        if (animationGroup !== "speaking") {
-            clearIdleSequence();
-            stopCurrentAction();
-            animationGroup = "speaking";
-        }
-        return;
-    }
-
-    if (group === "idle") {
-        if (animationGroup !== "idle") {
-            stopCurrentAction();
-            animationGroup = "idle";
-        }
-        startIdleSequence();
-        return;
-    }
-
-    const clipName = STATE_ANIMS[group];
-    if (clipName && animationGroup !== group) {
-        clearIdleSequence();
-        playClip(clipName, { loop: THREE.LoopRepeat, fadeSeconds: IDLE_FADE_SECONDS });
-        animationGroup = group;
-    }
-}
-
-function getHumanoidBone(vrm, name) {
-    if (!vrm || !vrm.humanoid) {
-        return null;
-    }
-    if (!name) {
-        return null;
-    }
-    return vrm.humanoid.getNormalizedBoneNode?.(name) || vrm.humanoid.getBoneNode?.(name) || null;
-}
-
-function findBoneByName(root, names) {
-    if (!root) {
-        return null;
-    }
-    const targets = names.map((n) => n.toLowerCase());
-    let found = null;
-    root.traverse((obj) => {
-        if (found || !obj.isBone) {
-            return;
-        }
-        const low = obj.name.toLowerCase();
-        if (targets.some((key) => low.includes(key))) {
-            found = obj;
-        }
-    });
-    return found;
-}
-
-function resolveBone(vrm, root, humanoidName, fallbackNames) {
-    return getHumanoidBone(vrm, humanoidName) || findBoneByName(root, fallbackNames);
-}
-
-function saveBaseRotation(bone) {
-    if (bone) {
-        baseRotations.set(bone, bone.rotation.clone());
-    }
-}
-
-function applyBoneOffset(bone, x, y, z) {
-    const base = baseRotations.get(bone);
-    if (!bone || !base) {
-        return;
-    }
-    bone.rotation.set(base.x + x, base.y + y, base.z + z);
-}
-
-function setupManualRig(vrm) {
-    const root = vrm?.scene;
-    rig.head = resolveBone(vrm, root, VRMHumanBoneName.Head, ["j_bip_c_head", "head"]);
-    rig.neck = resolveBone(vrm, root, VRMHumanBoneName.Neck, ["j_bip_c_neck", "neck"]);
-    rig.spine =
-        resolveBone(vrm, root, VRMHumanBoneName.UpperChest, ["j_bip_c_upperchest", "upperchest"]) ||
-        resolveBone(vrm, root, VRMHumanBoneName.Chest, ["j_bip_c_chest", "chest"]) ||
-        resolveBone(vrm, root, VRMHumanBoneName.Spine, ["j_bip_c_spine", "spine"]);
-    rig.lUpper = resolveBone(vrm, root, VRMHumanBoneName.LeftUpperArm, ["j_bip_l_upperarm", "leftupperarm"]);
-    rig.rUpper = resolveBone(vrm, root, VRMHumanBoneName.RightUpperArm, ["j_bip_r_upperarm", "rightupperarm"]);
-    rig.lLower = resolveBone(vrm, root, VRMHumanBoneName.LeftLowerArm, ["j_bip_l_lowerarm", "leftlowerarm"]);
-    rig.rLower = resolveBone(vrm, root, VRMHumanBoneName.RightLowerArm, ["j_bip_r_lowerarm", "rightlowerarm"]);
-    rig.lHand = resolveBone(vrm, root, VRMHumanBoneName.LeftHand, ["j_bip_l_hand", "lefthand"]);
-    rig.rHand = resolveBone(vrm, root, VRMHumanBoneName.RightHand, ["j_bip_r_hand", "righthand"]);
-
-    rig.lIndex = [
-        resolveBone(vrm, root, VRMHumanBoneName.LeftIndexProximal, ["j_bip_l_index1", "index1_l"]),
-        resolveBone(vrm, root, VRMHumanBoneName.LeftIndexIntermediate, ["j_bip_l_index2", "index2_l"]),
-    ].filter(Boolean);
-    rig.rIndex = [
-        resolveBone(vrm, root, VRMHumanBoneName.RightIndexProximal, ["j_bip_r_index1", "index1_r"]),
-        resolveBone(vrm, root, VRMHumanBoneName.RightIndexIntermediate, ["j_bip_r_index2", "index2_r"]),
-    ].filter(Boolean);
-
-    rig.lMiddle = [
-        resolveBone(vrm, root, VRMHumanBoneName.LeftMiddleProximal, ["j_bip_l_middle1", "middle1_l"]),
-        resolveBone(vrm, root, VRMHumanBoneName.LeftMiddleIntermediate, ["j_bip_l_middle2", "middle2_l"]),
-    ].filter(Boolean);
-    rig.rMiddle = [
-        resolveBone(vrm, root, VRMHumanBoneName.RightMiddleProximal, ["j_bip_r_middle1", "middle1_r"]),
-        resolveBone(vrm, root, VRMHumanBoneName.RightMiddleIntermediate, ["j_bip_r_middle2", "middle2_r"]),
-    ].filter(Boolean);
-
-    rig.lRing = [
-        resolveBone(vrm, root, VRMHumanBoneName.LeftRingProximal, ["j_bip_l_ring1", "ring1_l"]),
-        resolveBone(vrm, root, VRMHumanBoneName.LeftRingIntermediate, ["j_bip_l_ring2", "ring2_l"]),
-    ].filter(Boolean);
-    rig.rRing = [
-        resolveBone(vrm, root, VRMHumanBoneName.RightRingProximal, ["j_bip_r_ring1", "ring1_r"]),
-        resolveBone(vrm, root, VRMHumanBoneName.RightRingIntermediate, ["j_bip_r_ring2", "ring2_r"]),
-    ].filter(Boolean);
-
-    rig.lLittle = [
-        resolveBone(vrm, root, VRMHumanBoneName.LeftLittleProximal, ["j_bip_l_little1", "little1_l"]),
-        resolveBone(vrm, root, VRMHumanBoneName.LeftLittleIntermediate, ["j_bip_l_little2", "little2_l"]),
-    ].filter(Boolean);
-    rig.rLittle = [
-        resolveBone(vrm, root, VRMHumanBoneName.RightLittleProximal, ["j_bip_r_little1", "little1_r"]),
-        resolveBone(vrm, root, VRMHumanBoneName.RightLittleIntermediate, ["j_bip_r_little2", "little2_r"]),
-    ].filter(Boolean);
-
-    rig.lThumb = [
-        resolveBone(vrm, root, VRMHumanBoneName.LeftThumbProximal, ["j_bip_l_thumb1", "thumb1_l"]),
-        resolveBone(vrm, root, VRMHumanBoneName.LeftThumbDistal, ["j_bip_l_thumb2", "thumb2_l"]),
-    ].filter(Boolean);
-    rig.rThumb = [
-        resolveBone(vrm, root, VRMHumanBoneName.RightThumbProximal, ["j_bip_r_thumb1", "thumb1_r"]),
-        resolveBone(vrm, root, VRMHumanBoneName.RightThumbDistal, ["j_bip_r_thumb2", "thumb2_r"]),
-    ].filter(Boolean);
-
-    Object.values(rig).forEach((value) => {
-        if (Array.isArray(value)) {
-            value.forEach(saveBaseRotation);
-            return;
-        }
-        saveBaseRotation(value);
-    });
-    manualReady = true;
-}
-
-function setFinger(bones, curl, spreadZ, noise) {
-    if (bones[0]) {
-        applyBoneOffset(bones[0], curl * 0.4 + noise, 0, spreadZ);
-    }
-    if (bones[1]) {
-        applyBoneOffset(bones[1], curl * 0.35 + noise * 0.5, 0, 0);
-    }
-}
-
-function applyFingers(curlL, curlR, spread, noise) {
-    setFinger(rig.lIndex, curlL + Math.sin(noise * 1.1) * 0.04, spread * 0.06, noise * 0.03);
-    setFinger(rig.lMiddle, curlL + Math.sin(noise * 0.8) * 0.04, spread * 0.02, noise * 0.02);
-    setFinger(rig.lRing, curlL + Math.sin(noise * 1.3) * 0.04, -spread * 0.02, noise * 0.02);
-    setFinger(rig.lLittle, curlL + Math.sin(noise * 0.6) * 0.06, -spread * 0.07, noise * 0.04);
-    setFinger(rig.lThumb, curlL * 0.3, -spread * 0.05, -noise * 0.02);
-
-    setFinger(rig.rIndex, curlR + Math.sin(noise * 1.1) * 0.04, -spread * 0.06, -noise * 0.03);
-    setFinger(rig.rMiddle, curlR + Math.sin(noise * 0.8) * 0.04, -spread * 0.02, -noise * 0.02);
-    setFinger(rig.rRing, curlR + Math.sin(noise * 1.3) * 0.04, spread * 0.02, -noise * 0.02);
-    setFinger(rig.rLittle, curlR + Math.sin(noise * 0.6) * 0.06, spread * 0.07, -noise * 0.04);
-    setFinger(rig.rThumb, curlR * 0.3, spread * 0.05, noise * 0.02);
-}
-
-function resetPose() {
-    if (!currentVrm || !currentVrm.humanoid) {
-        return;
-    }
-    if (typeof currentVrm.humanoid.resetRawPose === "function") {
-        currentVrm.humanoid.resetRawPose();
-        return;
-    }
-    if (typeof currentVrm.humanoid.resetNormalizedPose === "function") {
-        currentVrm.humanoid.resetNormalizedPose();
-        return;
-    }
-    currentVrm.humanoid.resetPose();
-}
-
-function applyRestPose(elapsed) {
-    if (!manualReady) {
-        return;
-    }
-    resetPose();
-    const sway = Math.sin(elapsed * 0.8) * 0.02;
-    applyBoneOffset(rig.lUpper, 0.18 + sway, 0, 1.5);
-    applyBoneOffset(rig.rUpper, 0.18 - sway, 0, -1.5);
-    applyBoneOffset(rig.lLower, 0.22, 0, 0.12);
-    applyBoneOffset(rig.rLower, 0.22, 0, -0.12);
-    applyBoneOffset(rig.lHand, 0.05, 0, 0.04);
-    applyBoneOffset(rig.rHand, 0.05, 0, -0.04);
-    applyBoneOffset(rig.head, Math.sin(elapsed * 0.9) * 0.02, Math.sin(elapsed * 0.6) * 0.03, 0);
-    applyBoneOffset(rig.neck, Math.sin(elapsed * 0.7) * 0.01, 0, 0);
-}
-
-
-const GESTURE_PHRASES = [
-    // Open hands, both arms slightly raised and spread — "explaining something"
-    {
-        name: "explain",
-        duration: 3.2,
-        lUpper: { x: -0.3, y: 0.0, z: 1.2 },
-        rUpper: { x: -0.3, y: 0.0, z: -1.2 },
-        lLower: { x: 0.65, y: 0.0, z: 0.0 },
-        rLower: { x: 0.65, y: 0.0, z: 0.0 },
-        lHand: { x: -0.1, y: 0.15, z: 0.0 },
-        rHand: { x: -0.1, y: -0.15, z: 0.0 },
-        curlL: 0.05, curlR: 0.05, spread: 0.22,
+  const manager = new THREE.LoadingManager(
+    () => {
+      isModelLoaded = true;
+      if (loadingProgress) loadingProgress.style.width = '100%';
+      if (percentEl) percentEl.textContent = '100%';
+      tryDismissLoading();
     },
-    // Right hand raised, index slightly extended — "making a point"
-    {
-        name: "point",
-        duration: 2.4,
-        lUpper: { x: 0.1, y: 0.0, z: 1.5 },
-        rUpper: { x: -0.5, y: 0.08, z: -0.4 },
-        lLower: { x: 0.30, y: 0.0, z: 0.10 },
-        rLower: { x: 0.72, y: 0.05, z: 0.0 },
-        lHand: { x: 0.0, y: 0.0, z: 0.0 },
-        rHand: { x: -0.2, y: -0.2, z: 0.0 },
-        curlL: 0.28, curlR: -0.05, spread: 0.1,
+    (url, loaded, total) => {
+      const pct = Math.round((loaded / total) * 100);
+      if (loadingProgress) loadingProgress.style.width = `${pct}%`;
+      if (percentEl) percentEl.textContent = `${pct}%`;
+      if (statusTextEl) {
+        if (pct < 50) statusTextEl.textContent = 'CALIBRATING NEURAL AUDIO';
+        else if (pct < 90) statusTextEl.textContent = 'SYNCHRONIZING 3D STAGE';
+        else statusTextEl.textContent = 'COMPILING SHADERS';
+      }
     },
-    // Both arms wider, palms up — "welcoming / big idea"
-    {
-        name: "open",
-        duration: 2.8,
-        lUpper: { x: -0.4, y: 0.0, z: 0.9 },
-        rUpper: { x: -0.4, y: 0.0, z: -0.9 },
-        lLower: { x: 0.5, y: 0.0, z: 0.0 },
-        rLower: { x: 0.5, y: 0.0, z: 0.0 },
-        lHand: { x: -0.3, y: 0.2, z: 0.0 },
-        rHand: { x: -0.3, y: -0.2, z: 0.0 },
-        curlL: 0.0, curlR: 0.0, spread: 0.28,
-    },
-    // Left hand gestures while right rests — natural asymmetry
-    {
-        name: "leftEmphasis",
-        duration: 2.6,
-        lUpper: { x: -0.4, y: 0.05, z: 0.9 },
-        rUpper: { x: 0.1, y: 0.0, z: -1.5 },
-        lLower: { x: 0.68, y: 0.05, z: 0.0 },
-        rLower: { x: 0.28, y: 0.0, z: -0.08 },
-        lHand: { x: -0.15, y: 0.2, z: 0.0 },
-        rHand: { x: 0.05, y: 0.0, z: 0.0 },
-        curlL: 0.08, curlR: 0.22, spread: 0.15,
-    },
-    // Hands near chest, small contained gestures — "intimate / sincere"
-    {
-        name: "sincere",
-        duration: 2.2,
-        lUpper: { x: -0.1, y: 0.0, z: 1.35 },
-        rUpper: { x: -0.1, y: 0.0, z: -1.35 },
-        lLower: { x: 0.9, y: 0.0, z: 0.0 },
-        rLower: { x: 0.9, y: 0.0, z: 0.0 },
-        lHand: { x: 0.0, y: 0.1, z: 0.0 },
-        rHand: { x: 0.0, y: -0.1, z: 0.0 },
-        curlL: 0.15, curlR: 0.15, spread: 0.12,
-    },
-];
-
-// State for gesture phrase cycling
-const gestureState = {
-    phraseIndex: 0,
-    phraseTimer: 0,
-    prev: null,
-    next: null,
-    blendT: 1.0, // 1 = fully on next phrase
-};
-
-// Smooth interpolation helper (easing in-out)
-function smoothstep(t) {
-    return t * t * (3 - 2 * t);
-}
-
-// Linearly interpolate between two pose targets
-function lerpPose(a, b, t) {
-    const s = smoothstep(Math.max(0, Math.min(1, t)));
-    return {
-        x: a.x + (b.x - a.x) * s,
-        y: a.y + (b.y - a.y) * s,
-        z: a.z + (b.z - a.z) * s,
-    };
-}
-
-const GESTURE_BLEND_SECONDS = 0.45; // transition time between phrases
-
-function tickGesturePhrase(dt) {
-    const phrase = GESTURE_PHRASES[gestureState.phraseIndex];
-    gestureState.phraseTimer += dt;
-    gestureState.blendT = Math.min(1.0, gestureState.blendT + dt / GESTURE_BLEND_SECONDS);
-
-    if (gestureState.phraseTimer >= phrase.duration) {
-        gestureState.prev = phrase;
-        gestureState.phraseIndex = (gestureState.phraseIndex + 1) % GESTURE_PHRASES.length;
-        gestureState.phraseTimer = 0;
-        gestureState.blendT = 0;
+    (err) => {
+      console.error('Error loading model asset:', err);
+      isModelLoaded = true;
+      tryDismissLoading();
     }
-}
+  );
 
-function getCurrentGesturePose() {
-    const next = GESTURE_PHRASES[gestureState.phraseIndex];
-    if (!gestureState.prev || gestureState.blendT >= 1.0) {
-        return next;
-    }
-    // Blend between previous and current phrase
-    const t = gestureState.blendT;
-    return {
-        lUpper: lerpPose(gestureState.prev.lUpper, next.lUpper, t),
-        rUpper: lerpPose(gestureState.prev.rUpper, next.rUpper, t),
-        lLower: lerpPose(gestureState.prev.lLower, next.lLower, t),
-        rLower: lerpPose(gestureState.prev.rLower, next.rLower, t),
-        lHand: lerpPose(gestureState.prev.lHand, next.lHand, t),
-        rHand: lerpPose(gestureState.prev.rHand, next.rHand, t),
-        curlL: gestureState.prev.curlL + (next.curlL - gestureState.prev.curlL) * smoothstep(t),
-        curlR: gestureState.prev.curlR + (next.curlR - gestureState.prev.curlR) * smoothstep(t),
-        spread: gestureState.prev.spread + (next.spread - gestureState.prev.spread) * smoothstep(t),
-    };
-}
+  // Defer heavy 3D GLTF parsing until text animation has comfortably rendered
+  const modelUrl = '/static/model/tv_man_titan.glb';
+  setTimeout(() => {
+    const loader = new GLTFLoader(manager);
 
-function applySpeakingPose(elapsed, dt) {
-    if (!manualReady) {
-        return;
-    }
-    resetPose();
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        modelRoot = gltf.scene;
 
-    // Advance gesture phrase cycle
-    tickGesturePhrase(dt);
-    const pose = getCurrentGesturePose();
+        modelRoot.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
 
-    // Subtle micro-motion layered on top of gesture poses (breathing, emphasis beats)
-    const beat = Math.sin(elapsed * 5.2);   // fast emphasis pulse
-    const sway = Math.sin(elapsed * 1.1);   // slow body sway
-    const tilt = Math.sin(elapsed * 0.75);  // head tilt cycle
-    const nod = Math.sin(elapsed * 2.8);   // head nod on speech rhythm
-
-    // Head: nod + tilt for natural speech rhythm
-    applyBoneOffset(rig.head,
-        0.04 + nod * 0.06,           // forward nod on rhythm
-        sway * 0.06,                  // slow side-to-side
-        tilt * 0.05                   // slight roll/tilt
-    );
-    applyBoneOffset(rig.neck,
-        nod * 0.03,
-        sway * 0.03,
-        0
-    );
-
-    // Spine: lean slightly forward when speaking, gentle sway
-    applyBoneOffset(rig.spine,
-        0.03 + Math.sin(elapsed * 1.0) * 0.015,  // slight forward lean
-        sway * 0.01,
-        0
-    );
-
-    // Arms: gesture pose + small live micro-motion for organic feel
-    const jitterL = Math.sin(elapsed * 4.7) * 0.025;
-    const jitterR = Math.sin(elapsed * 5.9) * 0.025;
-
-    applyBoneOffset(rig.lUpper,
-        pose.lUpper.x + jitterL,
-        pose.lUpper.y,
-        pose.lUpper.z
-    );
-    applyBoneOffset(rig.rUpper,
-        pose.rUpper.x + jitterR,
-        pose.rUpper.y,
-        pose.rUpper.z
-    );
-    applyBoneOffset(rig.lLower,
-        pose.lLower.x + Math.sin(elapsed * 3.8) * 0.03,
-        pose.lLower.y,
-        pose.lLower.z
-    );
-    applyBoneOffset(rig.rLower,
-        pose.rLower.x + Math.sin(elapsed * 4.1) * 0.03,
-        pose.rLower.y,
-        pose.rLower.z
-    );
-    applyBoneOffset(rig.lHand,
-        pose.lHand.x + beat * 0.03,
-        pose.lHand.y,
-        pose.lHand.z
-    );
-    applyBoneOffset(rig.rHand,
-        pose.rHand.x + beat * 0.03,
-        pose.rHand.y,
-        pose.rHand.z
-    );
-
-    // Fingers: open/curl based on gesture + subtle live noise
-    applyFingers(pose.curlL, pose.curlR, pose.spread, beat * 0.25);
-}
-
-function setExpression(name, value) {
-    if (!currentVrm || !currentVrm.expressionManager) {
-        return;
-    }
-    currentVrm.expressionManager.setValue(name, value);
-}
-
-function updateLipSync(dt) {
-    if (!currentVrm || !currentVrm.expressionManager) {
-        return;
-    }
-
-    if (!state.isSpeaking) {
-        setExpression("aa", 0);
-        setExpression("ih", 0);
-        setExpression("ou", 0);
-        setExpression("ee", 0);
-        setExpression("oh", 0);
-        return;
-    }
-
-    lipPhase += dt * 9.0;
-    const a = Math.max(0, Math.sin(lipPhase * 1.0)) * 0.75;
-    const i = Math.max(0, Math.sin(lipPhase * 1.33 + 1.2)) * 0.55;
-    const u = Math.max(0, Math.sin(lipPhase * 0.72 + 2.4)) * 0.5;
-    const e = Math.max(0, Math.sin(lipPhase * 1.6 + 0.8)) * 0.45;
-    const o = Math.max(0, Math.sin(lipPhase * 0.92 + 3.0)) * 0.6;
-
-    setExpression("aa", a);
-    setExpression("ih", i);
-    setExpression("ou", u);
-    setExpression("ee", e);
-    setExpression("oh", o);
-}
-
-function frameModel(object3d) {
-    object3d.updateWorldMatrix(true, true);
-    const initialBox = new THREE.Box3().setFromObject(object3d);
-    if (initialBox.isEmpty()) {
-        return;
-    }
-
-    const initialSize = initialBox.getSize(new THREE.Vector3());
-    const maxDim = Math.max(initialSize.x, initialSize.y, initialSize.z);
-    const targetSize = 2.0;
-    const scale = targetSize / maxDim;
-    object3d.scale.setScalar(scale);
-
-    object3d.updateWorldMatrix(true, true);
-    const scaledBox = new THREE.Box3().setFromObject(object3d);
-    const center = scaledBox.getCenter(new THREE.Vector3());
-
-    object3d.position.x -= center.x;
-    object3d.position.y -= scaledBox.min.y;
-    object3d.position.z -= center.z;
-
-    object3d.updateWorldMatrix(true, true);
-    const finalBox = new THREE.Box3().setFromObject(object3d);
-    const sphere = finalBox.getBoundingSphere(new THREE.Sphere());
-    const radius = Math.max(sphere.radius, 0.5);
-    const fitDist = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5));
-
-    camera.near = Math.max(0.01, fitDist / 100);
-    camera.far = fitDist * 100;
-    camera.updateProjectionMatrix();
-
-    camera.position.set(fitDist * 0.6, fitDist * 0.35, fitDist * 0.9);
-    controls.target.set(0, radius * 0.5, 0);
-    controls.maxDistance = fitDist * 20;
-    controls.update();
-}
-
-async function loadVrm(loader) {
-    return new Promise((resolve, reject) => {
-        loader.load(
-            MODEL_URL,
-            (gltf) => {
-                const vrm = gltf.userData.vrm;
-                if (!vrm) {
-                    reject(new Error("VRM data missing"));
-                    return;
-                }
-
-                VRMUtils.removeUnnecessaryVertices(gltf.scene);
-                VRMUtils.combineSkeletons(gltf.scene);
-                VRMUtils.combineMorphs(vrm);
-
-                vrm.scene.traverse((obj) => {
-                    obj.frustumCulled = false;
-                });
-
-                if (currentVrm) {
-                    scene.remove(currentVrm.scene);
-                    currentVrm.dispose();
-                }
-
-                currentVrm = vrm;
-                currentVrm.scene.rotation.y = MODEL_YAW;
-                scene.add(currentVrm.scene);
-                frameModel(currentVrm.scene);
-
-                mixer = new THREE.AnimationMixer(currentVrm.scene);
-                setupManualRig(currentVrm);
-                resolve(currentVrm);
-            },
-            undefined,
-            (error) => {
-                reject(error);
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(m => optimizeMaterial(m));
+              } else {
+                optimizeMaterial(child.material);
+              }
             }
-        );
-    });
-}
+          }
+        });
 
-async function loadVrmaClip(loader, name, url) {
-    return new Promise((resolve, reject) => {
-        loader.load(
-            url,
-            (gltf) => {
-                const vrmAnimation = gltf.userData.vrmAnimations && gltf.userData.vrmAnimations[0];
-                if (!vrmAnimation) {
-                    reject(new Error(`VRMA data missing for ${name}`));
-                    return;
-                }
-                const clip = createVRMAnimationClip(vrmAnimation, currentVrm);
-                if (!clip) {
-                    reject(new Error(`Failed to build clip for ${name}`));
-                    return;
-                }
-                animationClips.set(name, clip);
-                resolve(clip);
-            },
-            undefined,
-            (error) => {
-                reject(error);
-            }
-        );
-    });
-}
+        // Apply dynamic TV screen canvas
+        tvScreenManager.applyToModel(modelRoot);
 
-const animationClips = new Map();
+        // Normalize scale and center
+        const bbox = new THREE.Box3().setFromObject(modelRoot);
+        const size = bbox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const targetHeight = 3.35;
+        const scaleFactor = maxDim > 0 ? (targetHeight / maxDim) : 1.0;
+        modelRoot.scale.setScalar(scaleFactor);
 
-async function loadAnimations(loader) {
-    const entries = Object.entries(VRMA_FILES);
-    for (const [name, file] of entries) {
-        const url = `${ANIMATIONS_BASE_URL}/${file}`;
-        try {
-            await loadVrmaClip(loader, name, url);
-        } catch (error) {
-            console.warn(`[Avatar] VRMA load failed: ${name}`, error);
+        const scaledBbox = new THREE.Box3().setFromObject(modelRoot);
+        const scaledCenter = scaledBbox.getCenter(new THREE.Vector3());
+
+        modelRoot.position.x = -scaledCenter.x;
+        modelRoot.position.z = -scaledCenter.z;
+        modelRoot.position.y = -scaledBbox.min.y;
+
+        scene.add(modelRoot);
+
+        if (screenPointLight) {
+          screenPointLight.position.set(0, scaledBbox.max.y * 0.85, 0.45);
         }
-    }
+
+        // Initialize animation and mechanics
+        animationController.init(modelRoot, gltf.animations);
+        mechanicalController.init(modelRoot);
+      },
+      undefined,
+      (error) => {
+        console.error('An error happened while loading GLTF:', error);
+      }
+    );
+  }, 600);
+}
+
+function optimizeMaterial(mat) {
+  if (!mat) return;
+  if (mat.color && mat.color.r < 0.15 && mat.color.g < 0.15 && mat.color.b < 0.15) {
+    mat.color.setRGB(0.24, 0.25, 0.28);
+  }
+  mat.roughness = Math.min(0.75, Math.max(0.3, mat.roughness ?? 0.5));
+  mat.metalness = Math.min(0.65, mat.metalness ?? 0.2);
+  mat.envMapIntensity = 1.2;
+}
+
+function onWindowResize() {
+  if (!camera || !renderer) return;
+  const container = renderer.domElement.parentElement || document.body;
+  const width = container.clientWidth || window.innerWidth;
+  const height = container.clientHeight || window.innerHeight;
+
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(width, height);
+}
+
+function onMouseMove(e) {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  if (tvScreenManager) {
+    tvScreenManager.setPointerLook(pointer.x, pointer.y);
+  }
 }
 
 function animate() {
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-    const elapsed = clock.getElapsedTime();
+  requestAnimationFrame(animate);
 
-    if (state.isSpeaking) {
-        applySpeakingPose(elapsed, delta);
+  const delta = clock.getDelta();
+
+  // Smooth Camera Glide Interpolation
+  camera.position.lerp(cameraTarget.pos, delta * 2.8);
+  controls.target.lerp(cameraTarget.lookAt, delta * 2.8);
+  controls.update();
+
+  // Update Dynamic CRT TV Screen
+  if (tvScreenManager) {
+    tvScreenManager.update(delta);
+
+    if (screenPointLight) {
+      screenPointLight.color.lerp(tvScreenManager.lightColor, delta * 8);
+      screenPointLight.intensity = THREE.MathUtils.lerp(
+        screenPointLight.intensity,
+        tvScreenManager.lightIntensity,
+        delta * 8
+      );
     }
+  }
 
-    updateLipSync(delta);
-    updateTimeScaleRamp(elapsed);
+  // Update Skeletal Animations & Mechanics
+  if (animationController) {
+    animationController.update(delta, pointer);
+  }
 
-    if (mixer) {
-        mixer.update(delta);
-    }
-    if (currentVrm) {
-        currentVrm.update(delta);
-    }
+  if (mechanicalController) {
+    mechanicalController.update(delta, pointer);
+  }
 
-    controls.update();
+  // Direct Hardware-accelerated Render with MSAA
+  if (renderer) {
     renderer.render(scene, camera);
+  }
 }
 
-async function initAvatar(canvasId, statusId) {
-    const canvas = document.getElementById(canvasId);
-    statusEl = document.getElementById(statusId);
+function glideToTarget(preset) {
+  if (idleCameraTimer) {
+    clearTimeout(idleCameraTimer);
+    idleCameraTimer = null;
+  }
+  cameraTarget.pos.copy(preset.pos);
+  cameraTarget.lookAt.copy(preset.lookAt);
+}
 
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf7f7f5);
+function scheduleGlideToOverview(delayMs = 4000) {
+  if (idleCameraTimer) clearTimeout(idleCameraTimer);
+  idleCameraTimer = setTimeout(() => {
+    cameraTarget.pos.copy(CAMERA_PRESETS.FULL_BODY.pos);
+    cameraTarget.lookAt.copy(CAMERA_PRESETS.FULL_BODY.lookAt);
+  }, delayMs);
+}
 
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(w, h);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+// Global Avatar Controller API
+export const AvatarController = {
+  initAvatar(canvasId = 'viewer') {
+    initScene(canvasId);
+  },
 
-    camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
-    camera.position.set(1.8, 1.3, 2.6);
-
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.target.set(0, 1, 0);
-
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xefece7, 1.0);
-    scene.add(hemi);
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambient);
-
-    const key = new THREE.DirectionalLight(0xffffff, 1.0);
-    key.position.set(3, 6, 3);
-    key.castShadow = true;
-    scene.add(key);
-
-    clock = new THREE.Clock();
-
-    const loader = new GLTFLoader();
-    loader.register((parser) => new VRMLoaderPlugin(parser));
-    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
-
-    try {
-        setStatus("Avatar: loading model");
-        await loadVrm(loader);
-        setStatus("Avatar: loading animations");
-        await loadAnimations(loader);
-        setStatus("Avatar: idle");
-        updateAnimationState();
-    } catch (error) {
-        setStatus("Avatar load failed");
-        console.error(error);
+  setAvatarState(stateStr) {
+    const s = (stateStr || 'idle').toLowerCase();
+    if (s === 'listening') {
+      tvScreenManager.setMode(ScreenModes.LISTENING);
+      animationController.setSpeakingState(false);
+      mechanicalController.setVoiceIntensity(0);
+      glideToTarget(CAMERA_PRESETS.FACE_CAM);
+    } else if (s === 'thinking') {
+      tvScreenManager.setMode(ScreenModes.THINKING);
+      animationController.setSpeakingState(false);
+      mechanicalController.setVoiceIntensity(0);
+      glideToTarget(CAMERA_PRESETS.FACE_CAM);
+    } else if (s === 'speaking') {
+      tvScreenManager.setMode(ScreenModes.SPEAKING);
+      animationController.setSpeakingState(true);
+      glideToTarget(CAMERA_PRESETS.FACE_CAM);
+    } else {
+      tvScreenManager.setMode(ScreenModes.IDLE);
+      animationController.setSpeakingState(false);
+      mechanicalController.setVoiceIntensity(0);
+      scheduleGlideToOverview(4000);
     }
+  },
 
-    window.addEventListener("resize", () => {
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    });
-
-    animate();
-}
-
-function setAvatarState(nextState) {
-    state.mode = nextState;
-    setStatus(`Avatar: ${nextState}`);
-    updateAnimationState();
-}
-
-function setSpeaking(active) {
-    state.isSpeaking = active;
-    if (!active) {
-        lipPhase = 0;
+  setSpeaking(isSpeaking) {
+    if (isSpeaking) {
+      tvScreenManager.setMode(ScreenModes.SPEAKING);
+      animationController.setSpeakingState(true);
+      glideToTarget(CAMERA_PRESETS.FACE_CAM);
+    } else {
+      if (tvScreenManager.currentMode === ScreenModes.SPEAKING) {
+        tvScreenManager.setMode(ScreenModes.IDLE);
+      }
+      animationController.setSpeakingState(false);
+      mechanicalController.setVoiceIntensity(0);
+      scheduleGlideToOverview(4000);
     }
-    if (active) {
-        // Reset gesture cycle so it always starts fresh
-        gestureState.phraseIndex = 0;
-        gestureState.phraseTimer = 0;
-        gestureState.prev = null;
-        gestureState.blendT = 1.0;
-        setStatus("Avatar: speaking");
-    }
-    updateAnimationState();
-}
+  },
 
-window.AvatarController = {
-    initAvatar,
-    setAvatarState,
-    setSpeaking,
+  setGenUIActive(active) {
+    isGenUIActive = !!active;
+  },
+
+  updateTranscript(text) {
+    tvScreenManager.setTranscript(text);
+  },
+
+  updateAudioData(freqArray, volume) {
+    tvScreenManager.setAudioData(freqArray, volume);
+    mechanicalController.setVoiceIntensity(volume);
+  },
+
+  triggerEmote(modeName) {
+    if (ScreenModes[modeName]) {
+      tvScreenManager.setMode(ScreenModes[modeName]);
+    }
+  },
+
+  displayImage(url, title = '') {
+    tvScreenManager.displayImage(url, title);
+    glideToTarget(CAMERA_PRESETS.SCREEN_CLOSEUP);
+  },
+
+  clearImage() {
+    tvScreenManager.clearImage();
+    glideToTarget(CAMERA_PRESETS.FULL_BODY);
+  },
+
+  setCameraPreset(presetKey) {
+    const preset = CAMERA_PRESETS[presetKey];
+    if (preset) {
+      soundFX.playClick();
+      cameraTarget.pos.copy(preset.pos);
+      cameraTarget.lookAt.copy(preset.lookAt);
+    }
+  },
+
+  toggleAudio() {
+    return soundFX.toggleMute();
+  }
 };
+
+window.AvatarController = AvatarController;
+export default AvatarController;

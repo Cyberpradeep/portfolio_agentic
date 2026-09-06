@@ -6,16 +6,55 @@ class MediaHandler {
         this.nextStartTime = 0;
         this.scheduledSources = [];
         this.isRecording = false;
+        this.analyser = null;
+        this.freqData = null;
+        this.analyserLoopRunning = false;
     }
 
     async initializeAudio() {
         if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
-            await this.audioContext.audioWorklet.addModule("/static/js/pcm-processor.js");
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioCtx({ sampleRate: 48000 });
+            
+            try {
+                await this.audioContext.audioWorklet.addModule("/static/js/pcm-processor.js");
+            } catch (err) {
+                console.warn("[MediaHandler] AudioWorklet module load notice:", err);
+            }
+
+            this.analyser = this.audioContext.createAnalyser();
+            this.analyser.fftSize = 64;
+            this.analyser.smoothingTimeConstant = 0.6;
+            this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+            this.startAnalyserLoop();
         }
+        
         if (this.audioContext.state === "suspended") {
             await this.audioContext.resume();
         }
+    }
+
+    startAnalyserLoop() {
+        if (this.analyserLoopRunning) return;
+        this.analyserLoopRunning = true;
+
+        const loop = () => {
+            requestAnimationFrame(loop);
+            if (!this.analyser || !this.freqData) return;
+
+            this.analyser.getByteFrequencyData(this.freqData);
+
+            let sum = 0;
+            for (let i = 0; i < this.freqData.length; i++) {
+                sum += this.freqData[i];
+            }
+            const avg = sum / this.freqData.length / 255;
+
+            if (window.AvatarController && typeof window.AvatarController.updateAudioData === "function") {
+                window.AvatarController.updateAudioData(this.freqData, avg);
+            }
+        };
+        requestAnimationFrame(loop);
     }
 
     async startAudio(onAudioData) {
@@ -63,49 +102,64 @@ class MediaHandler {
         }
     }
 
-    playAudio(arrayBuffer) {
+    async playAudio(arrayBuffer) {
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) return;
+
+        // Auto-initialize AudioContext if not already created (e.g. for text-initiated responses)
         if (!this.audioContext) {
-            return;
+            await this.initializeAudio();
         }
 
-        if (this.audioContext.state === "suspended") {
-            this.audioContext.resume();
+        if (this.audioContext && this.audioContext.state === "suspended") {
+            try {
+                await this.audioContext.resume();
+            } catch (_) {}
         }
 
-        const pcmData = new Int16Array(arrayBuffer);
-        const float32Data = new Float32Array(pcmData.length);
-        for (let i = 0; i < pcmData.length; i += 1) {
-            float32Data[i] = pcmData[i] / 32768.0;
-        }
+        if (!this.audioContext) return;
 
-        const buffer = this.audioContext.createBuffer(1, float32Data.length, 24000);
-        buffer.getChannelData(0).set(float32Data);
-
-        const source = this.audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(this.audioContext.destination);
-
-        const now = this.audioContext.currentTime;
-        this.nextStartTime = Math.max(now, this.nextStartTime);
-        source.start(this.nextStartTime);
-        this.nextStartTime += buffer.duration;
-
-        this.scheduledSources.push(source);
-        source.onended = () => {
-            const idx = this.scheduledSources.indexOf(source);
-            if (idx > -1) {
-                this.scheduledSources.splice(idx, 1);
+        try {
+            const pcmData = new Int16Array(arrayBuffer);
+            const float32Data = new Float32Array(pcmData.length);
+            for (let i = 0; i < pcmData.length; i += 1) {
+                float32Data[i] = pcmData[i] / 32768.0;
             }
-        };
+
+            const buffer = this.audioContext.createBuffer(1, float32Data.length, 24000);
+            buffer.getChannelData(0).set(float32Data);
+
+            const source = this.audioContext.createBufferSource();
+            source.buffer = buffer;
+
+            if (this.analyser) {
+                source.connect(this.analyser);
+                this.analyser.connect(this.audioContext.destination);
+            } else {
+                source.connect(this.audioContext.destination);
+            }
+
+            const now = this.audioContext.currentTime;
+            this.nextStartTime = Math.max(now, this.nextStartTime);
+            source.start(this.nextStartTime);
+            this.nextStartTime += buffer.duration;
+
+            this.scheduledSources.push(source);
+            source.onended = () => {
+                const idx = this.scheduledSources.indexOf(source);
+                if (idx > -1) {
+                    this.scheduledSources.splice(idx, 1);
+                }
+            };
+        } catch (err) {
+            console.error("[MediaHandler] Audio decode playback error:", err);
+        }
     }
 
     stopAudioPlayback() {
         this.scheduledSources.forEach((source) => {
             try {
                 source.stop();
-            } catch (_) {
-                // ignore
-            }
+            } catch (_) {}
         });
         this.scheduledSources = [];
         if (this.audioContext) {

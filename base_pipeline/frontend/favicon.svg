@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <!-- Sleek Studio Slate Surface -->
+  <rect width="64" height="64" rx="16" fill="#111111"/>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+  
+  <!-- Stylized Geometric P -->
+  <path d="M21 48V16h13.5c6.9 0 12.5 4.7 12.5 10.5S41.4 37 34.5 37H28v11h-7z" fill="url(#accentGrad)"/>
+  <path d="M28 22h6.5c3.6 0 6.5 2.5 6.5 5.5S38.1 33 34.5 33H28V22z" fill="#111111"/>
+  
+  <!-- Neural Voice Signal Indicator -->
+  <circle cx="48" cy="16" r="3.5" fill="#38bdf8"/>
+</svg>

@@ -1,5 +1,6 @@
 fastapi[standard]
 python-dotenv
-pipecat-ai[google,silero]
+pipecat-ai[google,silero,rnnoise,soxr]
+audiolab<0.5.0
 google-genai
 regex

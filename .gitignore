@@ -10,6 +10,7 @@
 !/Procfile
 !/requirements.txt
 !/README.md
+!/render.yaml
 
 # Allow the base_pipeline project files.
 !/base_pipeline/
