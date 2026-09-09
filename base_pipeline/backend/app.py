@@ -7,6 +7,7 @@ from typing import Type
 import asyncio
 import json
 import os
+import uuid
 # pyrefly: ignore [missing-import]
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -95,6 +96,7 @@ from email.mime.application import MIMEApplication
 import time
 import uuid
 from session_manager import session_manager
+import github_service
 
 
 
@@ -116,6 +118,26 @@ PORT = int(os.getenv("PORT", "8000"))
 SYSTEM_INSTRUCTION = f"""You are Pradeep's AI portfolio assistant and digital twin.
 
 Your goal is to help visitors explore Pradeep's projects, skills, experience, achievements, certifications, and learning journey in a natural and engaging way.
+
+GREETING & FIRST IMPRESSION
+
+When a session begins or a visitor greets you (e.g., "hi", "hello", "hey", or when starting), open with:
+"Vanakkam! I'm Pradeep's digital twin. Great to meet you — what would you like to explore?"
+
+Keep your opening warm, friendly, and brief. Never recite a canned list of topics or sound like a robot FAQ menu. Let the visitor lead the direction naturally.
+
+LANGUAGE & CULTURAL ADAPTABILITY
+
+* Speak in natural, friendly, and conversational English by default.
+* If the visitor speaks, greets, or asks in Tanglish or Tamil, seamlessly adapt and respond in warm, natural Tanglish!
+* Avoid stiff corporate jargon, robotic templates, or forced repetitive phrasing.
+
+ENGINEERING PHILOSOPHY & CORE DIFFERENTIATOR
+
+* Pradeep's engineering thesis is Deterministic Orchestration and FSM-Based Workflows over raw, unconstrained LLM autonomy.
+* In production systems (such as hospital triage or e-commerce ordering), raw LLM autonomy leads to hallucinated state transitions. Pradeep's approach uses LLMs strictly for intent extraction, semantic understanding, and tool execution, while deterministic finite state machines (FSMs) govern business logic, state transitions, and guardrails.
+* His primary engineering strengths: Voice AI (speech-to-speech pipelines, sub-800ms latency, context caching with Gemini Live, Cartesia, Whisper), Agentic AI (Azure AI Foundry, MCP, LangGraph, tool calling), and Context Engineering (context slicing, token optimization, conversation state management).
+* Experience context: He works on applied Voice AI and Agentic AI at Elverve (protecting client-specific IP while sharing architectural lessons) and previously completed an AI/ML internship at Edunet Foundation.
 
 PERSONALITY
 
@@ -268,6 +290,24 @@ Returns:
 
 ---
 
+get_github_activity()
+
+Use when users ask:
+
+* What have you worked on recently?
+* What are your latest GitHub commits or updates?
+* Tell me about your open-source contributions.
+* What repositories are you actively working on?
+* Show me your recent GitHub activity.
+
+Returns:
+
+* Live recent pushes with commit messages and dates
+* Open-source pull requests and issues (e.g. to perplexity-ai)
+* Recently active repositories sorted by push date
+
+---
+
 get_best_project()
 
 Use when users ask:
@@ -315,31 +355,35 @@ Returns:
 
 ---
 
-get_certifications()
+get_certifications(certification_name="")
 
 Use when users ask:
-
 * What certifications do you have?
 * Are you certified?
 * What are you currently learning?
+* Tell me about your [specific certificate] (e.g. Azure AI associate, AI-103, AI-900, GitHub Foundations)
 
-Returns:
+Parameters:
+* certification_name: (Optional) The specific certification name, code, or keyword to project on screen (e.g. 'Azure AI Apps and Agents', 'AI-103', 'Azure AI Fundamentals', 'AI-900', 'GitHub Foundations'). Leave empty if asking about certifications generally.
 
-* Completed certifications
-* Certifications in progress
-Note: This automatically projects the verified certificate on the robot's TV screen and displays the credentials panel.
+CRITICAL SCREEN PROJECTION & DEPRECATION KNOWLEDGE:
+* AI-103 (Microsoft AI-103: Azure AI Apps and Agents Developer Associate) is the latest active Microsoft credential. Note that AI-102 is deprecated and officially replaced by AI-103. If a visitor asks about AI-102, clarify that AI-102 has been deprecated by Microsoft and updated to AI-103, which Pradeep has achieved!
+* When asking about certifications in general:
+  - Call get_certifications() with no arguments.
+  - This projects the verified certificates onto the 3D robot TV screen ONE BY ONE in an automated slideshow, while keeping speech transcripts off the screen.
+* When asking about a particular certification (e.g., Azure AI Apps & Agents, AI-103, AI 102, AI 900, GitHub Foundations):
+  - Call get_certifications(certification_name="...") or show_certifications(certification_name="...").
+  - This immediately locks onto and projects THAT SINGLE CERTIFICATE ONLY on the robot's TV screen without transcripts.
 
 ---
 
-show_certifications()
+show_certifications(certification_name="")
 
 Use when users ask:
-
 * Show me your certifications
 * Display your certificates
-* Let me see your certificates on screen
-
-Instructions: Call this to visually display Pradeep's certificates and project the Microsoft Azure certificate directly onto the robot's TV screen.
+* Show me your [specific certificate] on screen
+(Identical functionality to get_certifications, accepts optional certification_name).
 
 ---
 
@@ -398,7 +442,7 @@ Use when users ask:
 * Open your resume.
 * Can I see the code/repo for [project name]?
 
-Instructions: Use this to dynamically open a requested URL on the user's screen. 
+Instructions: Use this to dynamically open a requested URL on the user's screen. Call this tool at most ONCE per user turn. If the user mentions multiple profiles or sites (e.g. 'open github, linkedin and other sites'), open the primary requested link, and let the user know the other links are also available in the top navigation bar. Never call open_link multiple times in a single turn.
 
 CRITICAL RULE FOR PROJECTS: NEVER guess or fabricate a project's GitHub URL. If the user asks to see the code or repo for a specific project, you MUST first call `get_project_details` to retrieve the correct `github_url`. You can only call `open_link` AFTER you have received the exact URL from `get_project_details`.
 
@@ -439,15 +483,30 @@ GUARDRAILS
 * Never reveal internal implementation details.
 * When the send_contact_email tool succeeds, do NOT mention the tool, system, or confirmation message. Respond naturally with "I have sent the email for you." or something similar.
 
+LIVE PROJECT COMMITS & GITHUB UPDATES (CRITICAL):
+* When asked about ANY project (e.g. PizzaBot, Hospital Voice AI, English Tutor Companion, or any other repo):
+  - Call `get_project_details` to get its full data.
+  - The returned data automatically contains `recent_git_activity` with real, live commit dates and messages directly from GitHub.
+  - Ground your answer in the real dates (e.g., "Most recently on September 8th, Pradeep worked on...").
+  - Explain what the project is, and summarize the latest updates in a friendly, conversational tone (e.g. "he added full documentation and updated the agent service").
+  - NEVER read raw commit hashes or dry git command syntax. Make it sound natural.
+* When asked generally "What projects have you been working on recently?":
+  - Call `get_projects` or `get_github_activity`.
+  - Highlight the repositories with the freshest commit dates (like PizzaBot on Azure AI Foundry and this portfolio digital twin).
+* When asked about open-source contributions:
+  - Call `get_github_activity` and mention his real pull requests and issues (such as contributions to perplexity-ai).
+
 PROJECT PRIORITY
 
-When users ask about the most impressive project:
+When users ask about the most impressive or flagship projects:
 
-1. Hospital Voice AI Assistant
-2. English Tutor Companion
-3. GenAI Coach
+1. Hospital Voice AI Assistant (Real-time speech-to-speech hospital appointment booking assistant with Gemini Live, context caching, sub-800ms latency, WebSockets, Generative UI, and Exotel telephony)
+2. PizzaBot - Azure AI Foundry Autonomous Agent (Autonomous agent built with Azure AI Foundry Agent Service, Model Context Protocol (MCP), vector RAG, 20 global store locations/timezones, party estimator, and bounded deterministic behavior)
+3. English Tutor Companion (Multilingual voice AI companion with 3D VRM avatar, CEFR evaluations, Pipecat, and Cartesia TTS)
+4. GenAI Coach & Analytics Platform (RAG-based learning platform with ChromaDB and multi-model routing)
+5. Agentic 3D Portfolio Digital Twin (This live multi-modal interactive 3D twin built with Three.js, Gemini Live WebSockets, GenUI tools, and real-time GitHub commit streaming)
 
-These projects best represent Pradeep's interests in Voice AI, Agentic AI, Context Engineering, and Generative AI.
+These projects highlight Pradeep's hands-on expertise in Voice AI, Agentic AI, Context Engineering, Deterministic FSMs, and Cloud AI platforms.
 
 VOICE MODE RULES
 
@@ -468,9 +527,6 @@ Help visitors understand:
 * What kind of AI engineer he is becoming
 
 Always be authentic, helpful, and grounded in the actual portfolio data.
-
-
-Speak in tanglish default
 """
 
 
@@ -556,6 +612,9 @@ active_websockets: set[WebSocket] = set()
 
 
 async def broadcast_event(payload: dict):
+    if isinstance(payload, dict) and "id" not in payload:
+        payload["id"] = str(uuid.uuid4())
+
     # 1. Dispatch directly over active audio WebSockets so voice clients receive tool events
     for ws in list(active_websockets):
         try:
@@ -631,6 +690,15 @@ async def get_projects(p: FunctionCallParams):
     print("[get_projects] called")
     data = load_json("projects.json")
 
+    # Fetch recently pushed repos to inform Gemini Live of freshest active projects
+    recent_pushed = []
+    try:
+        pushed_info = await github_service.get_recent_pushed_repos(limit=5)
+        if pushed_info.get("success"):
+            recent_pushed = pushed_info.get("repos", [])
+    except Exception as exc:
+        print(f"[get_projects_pushed_err] {exc}")
+
     # Automatically broadcast projects GenUI cards to the frontend
     cards = []
     for proj in data["projects"]:
@@ -649,17 +717,20 @@ async def get_projects(p: FunctionCallParams):
             "summary": proj.get("summary", "")[:80],
             "techs": techs,
             "type": proj.get("type", ""),
+            "github_url": proj.get("github_url", "")
         })
     await broadcast_event({"type": "show_projects", "projects": cards})
 
     await p.result_callback({
         "total_projects": len(data["projects"]),
+        "freshest_active_repos_on_github": recent_pushed,
         "projects": [
             {
                 "id": project["id"],
                 "name": project["name"],
                 "type": project["type"],
-                "summary": project["summary"]
+                "summary": project["summary"],
+                "github_url": project.get("github_url", "")
             }
             for project in data["projects"]
         ]
@@ -668,25 +739,73 @@ async def get_projects(p: FunctionCallParams):
 
 async def get_project_details(p: FunctionCallParams):
     print("[get_project_details] called with arguments:", p.arguments)
-    project_name = p.arguments.get("project_name", "")
+    project_name = p.arguments.get("project_name", "").strip()
     data = load_json("projects.json")
     
-    # Try exact or substring match first
+    # 1. Try exact, alias, or substring match in projects.json
+    matched_project = None
     for project in data["projects"]:
-        if project_name.lower() in project["name"].lower() or project_name.lower() in project.get("id", "").lower():
-            await broadcast_event({"type": "show_project", "project": project})
-            await p.result_callback({"found": True, "project": project})
+        aliases = project.get("aliases", [])
+        if (
+            project_name.lower() in project["name"].lower()
+            or project_name.lower() in project.get("id", "").lower()
+            or any(project_name.lower() in str(a).lower() for a in aliases)
+            or any(str(a).lower() in project_name.lower() for a in aliases)
+        ):
+            matched_project = project
+            break
+
+    # 2. Word-level fuzzy matching
+    if not matched_project:
+        query_words = set(project_name.lower().split())
+        for project in data["projects"]:
+            proj_words = set(project["name"].lower().split() + project.get("id", "").lower().split())
+            if len(query_words.intersection(proj_words)) >= 2 or any(qw in project["name"].lower() for qw in query_words if len(qw) > 4):
+                matched_project = project
+                break
+
+    # If matched from projects catalogue, enrich with real-time GitHub commits
+    if matched_project:
+        project_copy = dict(matched_project)
+        github_url = matched_project.get("github_url")
+        if github_url:
+            try:
+                commit_info = await github_service.get_repo_recent_commits(github_url, limit=3)
+                if commit_info.get("success"):
+                    project_copy["recent_git_activity"] = {
+                        "latest_commit_date": commit_info.get("latest_commit_date"),
+                        "latest_commit_message": commit_info.get("latest_commit_message"),
+                        "recent_commits": commit_info.get("commits", [])
+                    }
+            except Exception as exc:
+                print(f"[GITHUB_ENRICH_ERR] {exc}")
+
+        await broadcast_event({"type": "show_project", "project": project_copy})
+        await p.result_callback({"found": True, "project": project_copy})
+        return
+
+    # 3. Ad-hoc fallback: check if project_name directly maps to an active GitHub repository
+    try:
+        commit_info = await github_service.get_repo_recent_commits(project_name, limit=3)
+        if commit_info.get("success"):
+            repo_slug = commit_info["repo"]
+            adhoc_project = {
+                "id": repo_slug,
+                "name": repo_slug.replace("-", " ").replace("_", " ").title(),
+                "type": "GitHub Repository",
+                "summary": f"A repository by Pradeep Selladurai with live updates on {commit_info['latest_commit_date']}.",
+                "github_url": f"https://github.com/Cyberpradeep/{repo_slug}",
+                "recent_git_activity": {
+                    "latest_commit_date": commit_info.get("latest_commit_date"),
+                    "latest_commit_message": commit_info.get("latest_commit_message"),
+                    "recent_commits": commit_info.get("commits", [])
+                }
+            }
+            await broadcast_event({"type": "show_project", "project": adhoc_project})
+            await p.result_callback({"found": True, "project": adhoc_project})
             return
-            
-    # Try word-level fuzzy matching
-    query_words = set(project_name.lower().split())
-    for project in data["projects"]:
-        proj_words = set(project["name"].lower().split() + project.get("id", "").lower().split())
-        # If there's an overlap of meaningful words
-        if len(query_words.intersection(proj_words)) >= 2 or any(qw in project["name"].lower() for qw in query_words if len(qw) > 4):
-            await broadcast_event({"type": "show_project", "project": project})
-            await p.result_callback({"found": True, "project": project})
-            return
+    except Exception as exc:
+        print(f"[ADHOC_REPO_ERR] {exc}")
 
     # If still not found, return available names so the AI can correct itself
     available_names = [proj["name"] for proj in data["projects"]]
@@ -749,18 +868,124 @@ async def get_experience(p: FunctionCallParams):
     await p.result_callback(result)
 
 
+def resolve_certification(query: str, certs_data: dict):
+    if not query or not str(query).strip():
+        return None
+    q = str(query).strip().lower()
+    completed = certs_data.get("completed_certifications", [])
+
+    # 1. Azure AI Apps and Agents Developer Associate (AI-102 / AI-103 / AI-104)
+    if any(k in q for k in ["104", "103", "102", "associate", "agent", "apps and agent", "ai app", "azure ai agent", "azure ai app"]):
+        for c in completed:
+            c_name = c.get("name", "").lower()
+            if "apps and agents" in c_name or "ai-10" in c.get("code", "").lower() or "ai-10" in c_name:
+                return c
+
+    # 2. Azure AI Fundamentals (AI-900)
+    if any(k in q for k in ["900", "fundamental", "azure ai fundamental", "ai-900"]):
+        for c in completed:
+            if "fundamentals" in c.get("name", "").lower() and "azure" in c.get("name", "").lower():
+                return c
+
+    # 3. GitHub Foundations (GH-900)
+    if any(k in q for k in ["github", "gh-900", "git"]):
+        for c in completed:
+            if "github" in c.get("name", "").lower():
+                return c
+
+    # 4. Distributed Systems
+    if "distributed" in q:
+        for c in completed:
+            if "distributed" in c.get("name", "").lower():
+                return c
+
+    # 5. Edge Computing
+    if "edge" in q:
+        for c in completed:
+            if "edge" in c.get("name", "").lower():
+                return c
+
+    # 6. EC-Council / Android Bug Bounty
+    if any(k in q for k in ["bug bounty", "android", "rat", "ec-council"]):
+        for c in completed:
+            if "bug bounty" in c.get("name", "").lower() or "ec-council" in c.get("provider", "").lower():
+                return c
+
+    # 7. Cisco
+    if any(k in q for k in ["cisco", "network", "tcp"]):
+        for c in completed:
+            if "cisco" in c.get("provider", "").lower() or "network" in c.get("name", "").lower():
+                return c
+
+    # 8. Cyber Security
+    if any(k in q for k in ["cyber", "oxford", "tata"]):
+        for c in completed:
+            if "cyber" in c.get("name", "").lower() or "cyber" in c.get("category", "").lower():
+                return c
+
+    # 9. Generic substring match
+    for c in completed:
+        if q in c.get("name", "").lower() or c.get("name", "").lower() in q:
+            return c
+
+    return None
+
+
 async def get_certifications(p: FunctionCallParams):
     result = load_json("certifications.json")
-    print("[get_certifications] loaded certifications data")
-    primary_names = ["Microsoft Azure AI Fundamentals", "GitHub Foundations", "Distributed Systems", "Edge Computing"]
+    print("[get_certifications] arguments:", p.arguments)
+    cert_query = p.arguments.get("certification_name", "") if p.arguments else ""
+
+    matched = resolve_certification(cert_query, result) if cert_query else None
+
+    if matched:
+        print(f"[get_certifications] matched specific cert: {matched.get('name')}")
+        await broadcast_event({
+            "type": "show_certifications",
+            "certifications": [matched],
+            "active_image": matched.get("image") or "/static/assests/azure_ai_apps_and_agents_associate.png",
+            "title": matched.get("name"),
+            "single_cert": True
+        })
+        await p.result_callback({
+            "certification": matched,
+            "displaying_on_tv": matched.get("image") is not None,
+            "image": matched.get("image"),
+            "verify_url": matched.get("verify_url"),
+            "message": f"Displaying {matched['name']} exclusively on the robot TV screen."
+        })
+        return
+
+    # General certifications request (cycles verified certificate images one by one):
+    primary_names = [
+        "Microsoft AI-103: Azure AI Apps and Agents Developer Associate",
+        "Microsoft Certified: Azure AI Apps and Agents Developer Associate",
+        "Microsoft Azure AI Fundamentals",
+        "GitHub Foundations",
+        "Distributed Systems"
+    ]
     primary = []
     for c in result.get("completed_certifications", []):
-        if c["name"] in primary_names:
+        c_name = c.get("name", "")
+        if "apps and agents" in c_name.lower() or c_name in primary_names:
             primary.append(c)
     if not primary:
         primary = result.get("completed_certifications", [])[:4]
-    # Automatically broadcast certifications grid to the frontend
-    await broadcast_event({"type": "show_certifications", "certifications": primary})
+
+    cert_images = [
+        {"url": c["image"], "title": c["name"], "code": c.get("code", "")}
+        for c in result.get("completed_certifications", [])
+        if c.get("image")
+    ]
+
+    await broadcast_event({
+        "type": "show_certifications",
+        "certifications": primary,
+        "active_image": cert_images[0]["url"] if cert_images else "/static/assests/azure_ai_apps_and_agents_associate.png",
+        "title": cert_images[0]["title"] if cert_images else "Microsoft Certified: Azure AI Apps and Agents Developer Associate",
+        "single_cert": False,
+        "images": cert_images
+    })
     await p.result_callback(result)
 
 
@@ -875,6 +1100,31 @@ async def open_link(p: FunctionCallParams):
         await p.result_callback({"success": False, "message": "No URL provided."})
 
 
+async def get_github_activity(p: FunctionCallParams):
+    print("[get_github_activity] called with arguments:", p.arguments)
+    try:
+        activity = await github_service.get_user_recent_activity(limit=25)
+        pushed_repos = await github_service.get_recent_pushed_repos(limit=6)
+
+        payload_to_broadcast = {
+            "type": "show_github_activity",
+            "recent_pushes": activity.get("recent_pushes", []),
+            "open_source_contributions": activity.get("open_source_contributions", []),
+            "latest_repos": pushed_repos.get("repos", [])
+        }
+        await broadcast_event(payload_to_broadcast)
+
+        await p.result_callback({
+            "success": True,
+            "recent_pushes": activity.get("recent_pushes", []),
+            "open_source_contributions": activity.get("open_source_contributions", []),
+            "latest_repos": pushed_repos.get("repos", [])
+        })
+    except Exception as exc:
+        print(f"[get_github_activity_err] {exc}")
+        await p.result_callback({"success": False, "error": str(exc)})
+
+
 async def show_skills(p: FunctionCallParams):
     print("[show_skills] called")
     skills = p.arguments.get("skills", [])
@@ -942,21 +1192,8 @@ async def show_experience(p: FunctionCallParams):
 
 
 async def show_certifications(p: FunctionCallParams):
-    print("[show_certifications] called")
-    try:
-        data = load_json("certifications.json")
-        primary_names = ["Microsoft Azure AI Fundamentals", "GitHub Foundations", "Distributed Systems", "Edge Computing"]
-        primary = []
-        for c in data.get("completed_certifications", []):
-            if c["name"] in primary_names:
-                primary.append(c)
-        if not primary:
-            primary = data.get("completed_certifications", [])[:4]
-        await broadcast_event({"type": "show_certifications", "certifications": primary})
-        await p.result_callback({"success": True, "message": "Showing primary certifications in UI and TV screen"})
-    except Exception as e:
-        print(f"[show_certifications] error: {e}")
-        await p.result_callback({"success": False, "message": str(e)})
+    print("[show_certifications] called with arguments:", p.arguments)
+    await get_certifications(p)
 
 
 tools = [
@@ -1031,10 +1268,15 @@ tools = [
         ),
         types.FunctionDeclaration(
             name="get_certifications",
-            description="Get certifications completed and certifications currently being pursued. Automatically displays the verified credentials card on screen and projects the certificate onto the 3D robot TV screen.",
+            description="Get completed certifications and currently pursued certifications. When certification_name is provided, projects only that particular certificate onto the 3D robot TV screen. When omitted, cycles all verified certificate images one by one on the TV screen.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
-                properties={}
+                properties={
+                    "certification_name": types.Schema(
+                        type=types.Type.STRING,
+                        description="Optional name, code, or keyword of a specific certificate to view (e.g. 'Azure AI Apps and Agents', 'AI-103', 'Azure AI Fundamentals', 'AI-900', 'GitHub Foundations'). Leave empty if asking about certifications generally."
+                    )
+                }
             )
         ),
         types.FunctionDeclaration(
@@ -1149,7 +1391,21 @@ tools = [
         
         types.FunctionDeclaration(
             name="show_certifications",
-            description="Displays Pradeep's most valuable certifications on the screen and projects the certificate onto the 3D robot TV screen. Call this when the user asks about certifications or courses completed.",
+            description="Visually projects certifications onto the 3D robot TV screen and opens credentials panel. Pass certification_name to show only that specific certificate, or leave empty to cycle all certificate images one by one.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "certification_name": types.Schema(
+                        type=types.Type.STRING,
+                        description="Optional name, code, or keyword of a specific certificate to display."
+                    )
+                }
+            )
+        ),
+
+        types.FunctionDeclaration(
+            name="get_github_activity",
+            description="Fetches Pradeep's live real-time GitHub activity, recent repository commits, push events, and open-source contributions. Call this whenever the user asks about recent coding work, what he worked on lately, GitHub profile updates, or open-source PRs.",
             parameters=types.Schema(
                 type=types.Type.OBJECT,
                 properties={}
@@ -1183,11 +1439,29 @@ async def root():
 
 
 @app.get("/favicon.ico")
+async def favicon_ico():
+    fav = FRONTEND_DIR / "favicon.ico"
+    if fav.exists():
+        return FileResponse(str(fav), media_type="image/x-icon")
+    fav_svg = FRONTEND_DIR / "favicon.svg"
+    if fav_svg.exists():
+        return FileResponse(str(fav_svg), media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Favicon not found")
+
+
 @app.get("/favicon.svg")
-async def favicon():
+async def favicon_svg():
     fav = FRONTEND_DIR / "favicon.svg"
     if fav.exists():
         return FileResponse(str(fav), media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Favicon not found")
+
+
+@app.get("/favicon.png")
+async def favicon_png():
+    fav = FRONTEND_DIR / "favicon.png"
+    if fav.exists():
+        return FileResponse(str(fav), media_type="image/png")
     raise HTTPException(status_code=404, detail="Favicon not found")
 
 
@@ -1317,6 +1591,7 @@ async def run_session(websocket: WebSocket, session_id: str):
     llm.register_function("show_projects", show_projects)
     llm.register_function("show_experience", show_experience)
     llm.register_function("show_certifications", show_certifications)
+    llm.register_function("get_github_activity", get_github_activity)
 
     context = LLMContext(messages=list(session_data.messages))
 
@@ -1389,7 +1664,7 @@ async def run_session(websocket: WebSocket, session_id: str):
         await send_transport_event(websocket, {"type": "status", "state": "speaking"})
 
 
-    async def on_inactivity_timeout():
+    async def on_inactivity_timeout(_sid: str = None):
         print(f"[WATCHDOG] 60s inactivity reached for session={session_id}. Pausing session.")
         session_data.is_active = False
         try:

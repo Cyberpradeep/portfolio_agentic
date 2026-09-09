@@ -1,8 +1,9 @@
 {
     "certification_summary": {
-        "total_completed": 9,
+        "total_completed": 10,
         "focus_areas": [
             "Artificial Intelligence",
+            "Agentic AI",
             "Cyber Security",
             "Networking",
             "Distributed Systems",
@@ -11,10 +12,32 @@
     },
     "completed_certifications": [
         {
+            "name": "Microsoft AI-103: Azure AI Apps and Agents Developer Associate",
+            "code": "AI-103",
+            "provider": "Microsoft",
+            "status": "Completed",
+            "earned_date": "September 2026",
+            "category": "Artificial Intelligence",
+            "skills_gained": [
+                "Azure AI Services",
+                "AI Agent Development",
+                "Generative AI Solutions",
+                "Conversational AI",
+                "Azure AI Foundry",
+                "Prompt Engineering",
+                "Agent Workflows",
+                "Production AI Concepts"
+            ],
+            "importance": "Demonstrates hands-on learning and understanding of building AI applications and agent-based solutions on Microsoft Azure, supported by practical experimentation during AI-103 preparation.",
+            "image": "/static/assests/azure_ai_apps_and_agents_associate.png",
+            "verify_url": "https://learn.microsoft.com/api/credentials/share/en-us/PRADEEPS-7652/EBD2809257664BC1?sharingId=FB2098054B69487C"
+        },
+        {
             "name": "Microsoft Azure AI Fundamentals",
             "code": "AI-900",
             "provider": "Microsoft",
             "status": "Completed",
+            "earned_date": "June 16, 2025",
             "category": "Artificial Intelligence",
             "skills_gained": [
                 "AI Fundamentals",
@@ -25,7 +48,7 @@
                 "Azure AI Services"
             ],
             "importance": "This certification provided foundational knowledge about AI concepts and Microsoft AI services.",
-            "image": "/static/assests/Screenshot 2026-09-06 131836.png",
+            "image": "/static/assests/azure_ai_fundamentals.png",
             "verify_url": "https://learn.microsoft.com/api/credentials/share/en-us/PRADEEPS-7652/8B547C692765F791?sharingId=FB2098054B69487C"
         },
         {
@@ -33,6 +56,7 @@
             "code": "GH-900",
             "provider": "GitHub",
             "status": "Completed",
+            "earned_date": "October 28, 2025",
             "category": "Software Development",
             "skills_gained": [
                 "Git",
@@ -42,6 +66,7 @@
                 "Branching",
                 "Pull Requests"
             ],
+            "image": "/static/assests/github_foundations.png",
             "verify_url": "https://learn.microsoft.com/api/credentials/share/en-us/PRADEEPS-7652/CED12C74C0ED82A7?sharingId=FB2098054B69487C"
         },
         {
@@ -127,42 +152,51 @@
     ],
     "currently_learning": [
         {
-            "name": "Microsoft Azure AI Engineer Associate",
-            "code": "AI-102",
-            "provider": "Microsoft",
-            "status": "In Progress",
+            "name": "Advanced Agentic AI",
+            "provider": "Self-Directed Learning",
+            "status": "Learning",
             "focus": [
-                "Azure AI Services",
-                "Generative AI",
-                "Conversational AI",
-                "Production AI Solutions"
+                "Agent Architecture",
+                "Agent Loops",
+                "Agent Harnesses",
+                "Deterministic Orchestration"
             ]
         },
         {
-            "name": "Azure AI Foundry",
-            "provider": "Microsoft",
+            "name": "MCP and Agent Tool Integration",
+            "provider": "Self-Directed Learning",
             "status": "Learning",
             "focus": [
-                "AI Agent Development",
-                "Prompt Flows",
-                "AI Applications",
-                "LLM Workflows"
+                "MCP",
+                "Tool Integration",
+                "Agent Context"
+            ]
+        },
+        {
+            "name": "AI Evaluation and Observability",
+            "provider": "Self-Directed Learning",
+            "status": "Learning",
+            "focus": [
+                "Evaluation",
+                "Observability",
+                "AI System Quality"
             ]
         }
     ],
     "certification_journey": {
         "starting_focus": "Cyber Security",
         "transition": "Networking and Cyber Security certifications provided foundational technical knowledge.",
-        "current_focus": "Artificial Intelligence, Agentic AI and AI Engineering.",
+        "current_focus": "Artificial Intelligence, Agentic AI, AI Engineering, and practical AI application development.",
         "future_direction": [
-            "Advanced AI Certifications",
-            "Cloud AI Certifications",
-            "AI Engineering Certifications"
+            "Advanced AI Engineering",
+            "Cloud AI Technologies",
+            "Agent Architecture",
+            "AI Evaluation and Observability"
         ]
     },
     "most_relevant_certifications_for_ai": [
+        "Microsoft AI-103: Azure AI Apps and Agents Developer Associate (AI-103)",
         "AI-900",
-        "AI-102 (In Progress)",
         "Distributed Systems",
         "Edge Computing"
     ],

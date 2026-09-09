@@ -216,11 +216,94 @@ function handleAssistantStreamChunk(aiText, isFinal = false) {
   }
 }
 
+// Global server payload deduplication (prevents concurrent WebSocket + SSE duplicates)
+const processedEventIds = new Set();
+const recentEventFingerprints = new Map();
+
+function isDuplicateServerPayload(payload) {
+  if (!payload || !payload.type) return false;
+
+  // 1. Backend-assigned unique event ID
+  if (payload.id) {
+    if (processedEventIds.has(payload.id)) {
+      return true;
+    }
+    processedEventIds.add(payload.id);
+    if (processedEventIds.size > 200) {
+      const first = processedEventIds.values().next().value;
+      processedEventIds.delete(first);
+    }
+  }
+
+  // 2. Fallback payload fingerprint (2.5s window to filter dual WS + SSE delivery)
+  const fp = `${payload.type}:${payload.url || (payload.project && payload.project.name) || payload.text || ''}`;
+  const now = Date.now();
+  const last = recentEventFingerprints.get(fp);
+  if (last && (now - last) < 2500) {
+    return true;
+  }
+  recentEventFingerprints.set(fp, now);
+  if (recentEventFingerprints.size > 60) {
+    for (const [k, t] of recentEventFingerprints.entries()) {
+      if (now - t > 8000) recentEventFingerprints.delete(k);
+    }
+  }
+  return false;
+}
+
+let lastOpenedLinkUrl = '';
+let lastOpenedLinkTimestamp = 0;
+
+function openSingleExternalWindow(rawUrl) {
+  if (!rawUrl) return;
+  const url = rawUrl.trim();
+  const now = Date.now();
+
+  // Deduplicate identical URLs within 4 seconds
+  if (url === lastOpenedLinkUrl && (now - lastOpenedLinkTimestamp) < 4000) {
+    console.log('[OPEN_LINK] Ignored duplicate request for URL:', url);
+    return;
+  }
+
+  // Throttle rapid successive window openings (minimum 1.5s gap)
+  if ((now - lastOpenedLinkTimestamp) < 1500) {
+    console.log('[OPEN_LINK] Throttled rapid consecutive window opening:', url);
+    return;
+  }
+
+  lastOpenedLinkUrl = url;
+  lastOpenedLinkTimestamp = now;
+
+  console.log('[OPEN_LINK] Opening exactly 1 window for:', url);
+
+  // Single clean trigger: create an anchor element, click once, and clean up.
+  // Never run both window.open AND a.click() sequentially.
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (err) {
+    console.warn('[OPEN_LINK] Anchor click failed, attempting window.open:', err);
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (_) {}
+  }
+}
+
 // ==========================================================================
 // SERVER PAYLOAD HANDLER
 // ==========================================================================
 function handleServerPayload(payload) {
   if (!payload || !payload.type) return;
+
+  // Filter out duplicate events dispatched across both WebSocket and SSE channels
+  if (isDuplicateServerPayload(payload)) {
+    return;
+  }
 
   switch (payload.type) {
     case 'user_stream': {
@@ -300,6 +383,7 @@ function handleServerPayload(payload) {
       break;
 
     case 'show_experience':
+      AvatarController.unlockScreen();
       if (payload.experience) {
         renderGenUIExperienceTimeline(payload.experience);
       }
@@ -307,37 +391,39 @@ function handleServerPayload(payload) {
 
     case 'show_certifications':
       if (payload.certifications) {
-        renderGenUICertifications(payload.certifications);
-        const list = Array.isArray(payload.certifications) ? payload.certifications : (payload.certifications.completed_certifications || []);
-        const firstWithImg = list.find(c => c.image) || list[0];
-        const imgUrl = payload.active_image || (firstWithImg && firstWithImg.image) || '/static/assests/Screenshot 2026-09-06 131836.png';
-        const title = (firstWithImg && (firstWithImg.name || firstWithImg.title)) || 'AZURE AI AGENTS ASSOCIATE';
-        AvatarController.displayImage(imgUrl, title);
+        const isSingle = !!payload.single_cert;
+        renderGenUICertifications(payload.certifications, isSingle);
+
+        if (isSingle) {
+          const list = Array.isArray(payload.certifications) ? payload.certifications : [payload.certifications];
+          const cert = list[0] || {};
+          const imgUrl = payload.active_image || cert.image || '/static/assests/azure_ai_apps_and_agents_associate.png';
+          const title = payload.title || cert.name || 'AZURE AI AGENTS ASSOCIATE';
+          AvatarController.displayImage(imgUrl, title, true);
+        } else if (payload.images && payload.images.length > 0) {
+          AvatarController.displayImageCarousel(payload.images, 3.8);
+        } else {
+          const list = Array.isArray(payload.certifications) ? payload.certifications : (payload.certifications.completed_certifications || []);
+          const certImages = list.filter(c => c.image).map(c => ({ url: c.image, title: c.name }));
+          if (certImages.length > 1) {
+            AvatarController.displayImageCarousel(certImages, 3.8);
+          } else if (certImages.length === 1) {
+            AvatarController.displayImage(certImages[0].url, certImages[0].title, true);
+          } else {
+            AvatarController.displayImage('/static/assests/azure_ai_apps_and_agents_associate.png', 'AZURE AI AGENTS ASSOCIATE', true);
+          }
+        }
       }
+      break;
+
+    case 'show_github_activity':
+      AvatarController.unlockScreen();
+      renderGenUIGitHubActivity(payload);
       break;
 
     case 'open_link':
       if (payload.url) {
-        console.log('[OPEN_LINK] Opening URL:', payload.url);
-        let win = null;
-        try {
-          win = window.open(payload.url, '_blank', 'noopener,noreferrer');
-        } catch (err) {
-          console.warn('[OPEN_LINK] window.open error:', err);
-        }
-
-        // Anchor dispatch attempt
-        if (!win || win.closed || typeof win.closed === 'undefined') {
-          try {
-            const a = document.createElement('a');
-            a.href = payload.url;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          } catch (_) {}
-        }
+        openSingleExternalWindow(payload.url);
       }
       break;
   }
@@ -496,6 +582,13 @@ function renderGenUIProjectBento(project) {
         <span class="ledger-key">FRAMEWORKS</span>
         <span class="ledger-val">${escapeHtml(frameworksList)}</span>
       </div>` : ''}
+      ${project.recent_git_activity ? `
+      <div class="ledger-row" style="border-top: 1px dashed rgba(2,132,199,0.3); padding-top: 6px; margin-top: 4px;">
+        <span class="ledger-key" style="color: #0284c7; font-weight: 600;">LATEST COMMIT</span>
+        <span class="ledger-val" style="color: #111;">
+          <strong>${escapeHtml(project.recent_git_activity.latest_commit_date)}</strong>: ${escapeHtml(project.recent_git_activity.latest_commit_message)}
+        </span>
+      </div>` : ''}
     </div>
 
     ${featuresListHtml ? `
@@ -624,51 +717,87 @@ function renderGenUIExperienceTimeline(experience) {
 // --------------------------------------------------------------------------
 // 5. VERIFIED CERTIFICATIONS
 // --------------------------------------------------------------------------
-function renderGenUICertifications(certs) {
+function renderGenUICertifications(certs, isSingleCert = false) {
   if (!certs) return;
   clearGenUI();
-  lastGenUICall = { type: 'certifications', payload: certs };
+  lastGenUICall = { type: 'certifications', payload: certs, isSingleCert };
   setGenUIOpen(true);
 
   const slate = document.createElement('div');
   slate.className = 'studio-slate slate-stagger';
 
-  const list = Array.isArray(certs) ? certs : (certs.certifications || certs.completed_certifications || []);
-  const certsHtml = list.slice(0, 4).map((c, idx) => {
-    const certImg = c.image || (c.name && c.name.toLowerCase().includes('azure') ? '/static/assests/Screenshot 2026-09-06 131836.png' : null);
-    return `
-    <div class="slate-cert-entry">
-      <div class="milestone-meta-row">
-        <span>${escapeHtml(c.provider || c.issuer || 'Certified')} ${c.date ? `· ${escapeHtml(c.date)}` : ''}</span>
-        <span>0${idx + 1}</span>
-      </div>
-      <h4 class="milestone-role">${escapeHtml(c.name || c.title)}</h4>
-      <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
-        ${(c.verify_url || c.link) ? `<a href="${escapeHtml(c.verify_url || c.link)}" target="_blank" rel="noopener noreferrer" class="slate-inline-link">Verify Credential ↗</a>` : ''}
-        ${certImg ? `<button type="button" class="slate-inline-link show-on-tv-btn" data-image="${escapeHtml(certImg)}" data-title="${escapeHtml(c.name || c.title)}" style="background: none; border: none; padding: 0; cursor: pointer;">Display on TV Screen ↗</button>` : ''}
-      </div>
-    </div>
-  `;
-  }).join('<div class="slate-divider"></div>');
+  const list = Array.isArray(certs) ? certs : (certs.certifications || certs.completed_certifications || [certs]);
 
-  slate.innerHTML = `
-    <div class="slate-header">
-      <span class="slate-tag">CREDENTIALS // ACCREDITATIONS</span>
-      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
-    </div>
-    
-    <h3 class="slate-title">Verified Certifications</h3>
-    <p class="slate-lead">Accredited engineering proficiencies in AI and Cloud architectures.</p>
-    
-    <div class="slate-certs-list">${certsHtml}</div>
-  `;
+  if (isSingleCert && list.length > 0) {
+    const c = list[0];
+    const certImg = c.image || '/static/assests/azure_ai_apps_and_agents_associate.png';
+    const skillsHtml = (c.skills_gained || []).map(s => `<span class="slate-chip">${escapeHtml(s)}</span>`).join('');
+
+    slate.innerHTML = `
+      <div class="slate-header">
+        <span class="slate-tag">ACCREDITATION // DIRECT SPECIFICATION</span>
+        <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+      </div>
+      
+      <h3 class="slate-title">${escapeHtml(c.name || 'Verified Certification')}</h3>
+      <div class="milestone-meta-row" style="margin-top: 4px; margin-bottom: 12px;">
+        <span>${escapeHtml(c.provider || 'Accredited')} ${(c.earned_date || c.date) ? `· Earned ${escapeHtml(c.earned_date || c.date)}` : ''}</span>
+        <span>${c.code ? escapeHtml(c.code) : 'VERIFIED'}</span>
+      </div>
+
+      <p class="slate-lead" style="font-size: 13.5px; line-height: 1.6; margin-bottom: 16px;">
+        ${escapeHtml(c.importance || 'Official industry certification validating deep technical expertise and production delivery skills.')}
+      </p>
+
+      ${skillsHtml ? `
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 8px;">Key Competencies</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">${skillsHtml}</div>
+        </div>
+      ` : ''}
+
+      <div style="display: flex; gap: 12px; align-items: center; margin-top: 18px; flex-wrap: wrap;">
+        ${(c.verify_url || c.link) ? `<a href="${escapeHtml(c.verify_url || c.link)}" target="_blank" rel="noopener noreferrer" class="slate-inline-link" style="font-size: 13px;">Official Credential Link ↗</a>` : ''}
+        ${certImg ? `<button type="button" class="slate-inline-link show-on-tv-btn" data-image="${escapeHtml(certImg)}" data-title="${escapeHtml(c.name || '')}" style="background: none; border: none; padding: 0; cursor: pointer; font-size: 13px;">Lock on TV Screen ↗</button>` : ''}
+      </div>
+    `;
+  } else {
+    const certsHtml = list.slice(0, 4).map((c, idx) => {
+      const certImg = c.image || null;
+      return `
+      <div class="slate-cert-entry">
+        <div class="milestone-meta-row">
+          <span>${escapeHtml(c.provider || c.issuer || 'Certified')} ${(c.earned_date || c.date) ? `· ${escapeHtml(c.earned_date || c.date)}` : ''}</span>
+          <span>0${idx + 1}</span>
+        </div>
+        <h4 class="milestone-role">${escapeHtml(c.name || c.title)}</h4>
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+          ${(c.verify_url || c.link) ? `<a href="${escapeHtml(c.verify_url || c.link)}" target="_blank" rel="noopener noreferrer" class="slate-inline-link">Verify Credential ↗</a>` : ''}
+          ${certImg ? `<button type="button" class="slate-inline-link show-on-tv-btn" data-image="${escapeHtml(certImg)}" data-title="${escapeHtml(c.name || c.title)}" style="background: none; border: none; padding: 0; cursor: pointer;">Display on TV Screen ↗</button>` : ''}
+        </div>
+      </div>
+    `;
+    }).join('<div class="slate-divider"></div>');
+
+    slate.innerHTML = `
+      <div class="slate-header">
+        <span class="slate-tag">CREDENTIALS // ACCREDITATIONS</span>
+        <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+      </div>
+      
+      <h3 class="slate-title">Verified Certifications</h3>
+      <p class="slate-lead">Cycling verified certificate images on the robot's TV monitor. Click any credential to display it directly.</p>
+      
+      <div class="slate-certs-list">${certsHtml}</div>
+    `;
+  }
 
   slate.querySelectorAll('.show-on-tv-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const imgUrl = btn.dataset.image || '/static/assests/Screenshot 2026-09-06 131836.png';
+      const imgUrl = btn.dataset.image || '/static/assests/azure_ai_apps_and_agents_associate.png';
       const title = btn.dataset.title || 'AZURE AI AGENTS ASSOCIATE';
-      AvatarController.displayImage(imgUrl, title);
+      AvatarController.displayImage(imgUrl, title, true);
     });
   });
 
@@ -719,6 +848,101 @@ function renderGenUIContactModal() {
   `;
 
   slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  genuiContainerEl.appendChild(slate);
+}
+
+// --------------------------------------------------------------------------
+// 6. LIVE GITHUB ACTIVITY & OPEN SOURCE SLATE
+// --------------------------------------------------------------------------
+function renderGenUIGitHubActivity(payload) {
+  if (!payload) return;
+  clearGenUI();
+  lastGenUICall = { type: 'github_activity', payload };
+  setGenUIOpen(true);
+
+  const slate = document.createElement('div');
+  slate.className = 'studio-slate slate-stagger';
+
+  const repos = payload.latest_repos || [];
+  const openSource = payload.open_source_contributions || [];
+  const pushes = payload.recent_pushes || [];
+
+  const reposHtml = repos.slice(0, 4).map(r => `
+    <div class="ledger-row" style="margin-bottom: 6px;">
+      <span class="ledger-key" style="font-weight: 600; color: #111;">
+        <a href="${escapeHtml(r.github_url)}" target="_blank" rel="noopener noreferrer" style="color: #0284c7; text-decoration: none;">
+          ${escapeHtml(r.name)} ↗
+        </a>
+      </span>
+      <span class="ledger-val" style="font-size: 11px;">
+        <span class="slate-badge badge-metric" style="padding: 1px 6px; font-size: 10px;">${escapeHtml(r.language || 'Code')}</span>
+        ${escapeHtml(r.pushed_at || '')}
+      </span>
+    </div>
+  `).join('');
+
+  const osHtml = openSource.length > 0 ? openSource.slice(0, 3).map(os => `
+    <li style="margin-bottom: 4px;">
+      <strong style="color: #0284c7;">${escapeHtml(os.type)}:</strong> 
+      <a href="${escapeHtml(os.url || 'https://github.com/' + os.repo)}" target="_blank" rel="noopener noreferrer" style="color: #111; text-decoration: underline;">
+        ${escapeHtml(os.repo)}
+      </a>
+      ${os.title ? `— <em>${escapeHtml(os.title.slice(0, 60))}...</em>` : ''}
+      <span style="color: #888; font-size: 11px;">(${escapeHtml(os.date)})</span>
+    </li>
+  `).join('') : '<li>Active open-source contributor on GitHub</li>';
+
+  const commitsHtml = pushes.slice(0, 3).map(p => `
+    <div class="ledger-row">
+      <span class="ledger-key" style="color: #555;">${escapeHtml(p.repo.replace('Cyberpradeep/', ''))}</span>
+      <span class="ledger-val" style="font-size: 11px;"><strong>${escapeHtml(p.date)}</strong>: ${escapeHtml(p.latest_commit)}</span>
+    </div>
+  `).join('');
+
+  slate.innerHTML = `
+    <div class="slate-header">
+      <span class="slate-tag">TELEMETRY // GITHUB REAL-TIME</span>
+      <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+      <span class="slate-badge badge-live">● LIVE SYNCED</span>
+      <span class="slate-badge badge-metric">@Cyberpradeep</span>
+    </div>
+
+    <h3 class="slate-title">Recent Code &amp; Contributions</h3>
+    <p class="slate-lead">Real-time commit chronology and open-source contributions directly from GitHub.</p>
+
+    ${reposHtml ? `
+    <div class="slate-section" style="margin-top: 10px;">
+      <div class="slate-section-label">ACTIVE REPOSITORIES (PUSH CHRONOLOGY)</div>
+      <div class="slate-ledger">${reposHtml}</div>
+    </div>` : ''}
+
+    ${openSource.length > 0 ? `
+    <div class="slate-section" style="margin-top: 10px;">
+      <div class="slate-section-label">OPEN-SOURCE CONTRIBUTIONS</div>
+      <ul class="slate-spec-list">${osHtml}</ul>
+    </div>` : ''}
+
+    ${commitsHtml ? `
+    <div class="slate-section" style="margin-top: 10px;">
+      <div class="slate-section-label">LATEST CODE COMMITS</div>
+      <div class="slate-ledger">${commitsHtml}</div>
+    </div>` : ''}
+
+    <div class="slate-actions-row" style="margin-top: 16px;">
+      <a href="https://github.com/Cyberpradeep" target="_blank" rel="noopener noreferrer" class="slate-btn primary">Visit GitHub Profile ↗</a>
+      <button type="button" class="slate-btn tertiary" id="backToProjectsFromGitBtn">← View Projects</button>
+    </div>
+  `;
+
+  slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+  const backBtn = slate.querySelector('#backToProjectsFromGitBtn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => sendUserQuery('Show me your featured projects'));
+  }
+
   genuiContainerEl.appendChild(slate);
 }
 
@@ -906,7 +1130,7 @@ function setupEventListeners() {
 
 // Start
 window.displayCertification = () => {
-  AvatarController.displayImage('/static/assests/Screenshot 2026-09-06 131836.png', 'AZURE AI AGENTS ASSOCIATE');
+  AvatarController.displayImage('/static/assests/azure_ai_apps_and_agents_associate.png', 'AZURE AI AGENTS ASSOCIATE');
 };
 
 document.addEventListener('DOMContentLoaded', init);

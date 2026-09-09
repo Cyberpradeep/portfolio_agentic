@@ -3,6 +3,9 @@
         "Agentic AI",
         "Voice AI",
         "Context Engineering",
+        "Agent Orchestration",
+        "Deterministic Orchestration",
+        "FSM-Based Workflows",
         "Prompt Engineering",
         "LLM Applications",
         "Generative UI",
@@ -149,7 +152,9 @@
                 "Voice AI",
                 "Function Calling",
                 "Generative UI",
-                "RAG Systems"
+                "RAG Systems",
+                "Model Behavior Experimentation",
+                "Model Configuration Experimentation"
             ]
         },
         "gemini_live": {
@@ -158,7 +163,8 @@
                 "Speech-to-Speech Systems",
                 "Voice Agents",
                 "Hospital Voice AI Assistant",
-                "English Tutor Companion"
+                "English Tutor Companion",
+                "Real-Time Voice Interaction"
             ]
         },
         "litellm": {
@@ -185,11 +191,12 @@
             "level": "Beginner",
             "usage": [
                 "Multi-Agent Systems",
-                "Agent Orchestration"
+                "Agent Orchestration",
+                "Agent Workflow Experimentation"
             ]
         },
         "microsoft_agent_framework": {
-            "level": "Learning and Experimentation"
+            "level": "Explored / Experimented"
         },
         "pipecat": {
             "level": "Intermediate",
@@ -222,7 +229,14 @@
             "level": "Intermediate"
         },
         "agent_orchestration": {
-            "level": "Intermediate"
+            "level": "Intermediate",
+            "experience": [
+                "Agent Workflow Design",
+                "Tool Calling",
+                "FSM-Based Orchestration",
+                "Deterministic Workflow Exploration",
+                "Agent Loop Research"
+            ]
         }
     },
     "context_engineering": {
@@ -235,7 +249,9 @@
         "real_world_usage": [
             "Hospital Voice AI Assistant",
             "Long-running Voice Conversations",
-            "Token Optimization"
+            "Token Optimization",
+            "Conversation State Management",
+            "Deterministic Context and Workflow Control"
         ]
     },
     "prompt_engineering": {
@@ -267,7 +283,10 @@
         "stateless_agent_architecture": true,
         "latency_reduction": true,
         "experience": [
-            "Hospital Voice AI Assistant"
+            "Hospital Voice AI Assistant",
+            "Deterministic Orchestration Experiments",
+            "FSM-Based Voice Workflow Design",
+            "Agent Loop and Harness Research"
         ]
     },
     "cybersecurity": {
@@ -277,12 +296,11 @@
         "background": "Cyber Security Undergraduate"
     },
     "currently_learning": [
-        "AI-102",
-        "Azure AI Foundry",
         "Advanced Agentic AI",
-        "MCP",
         "Agent Memory Systems",
-        "Evaluation Systems",
-        "Knowledge Graph RAG"
+        "AI Evaluation and Observability",
+        "Knowledge Graph RAG",
+        "Advanced MCP Usage",
+        "Agent Architecture Patterns"
     ]
 }

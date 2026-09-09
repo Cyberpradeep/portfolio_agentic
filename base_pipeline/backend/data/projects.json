@@ -13,7 +13,7 @@
                 "Speech-to-Speech Systems"
             ],
             "summary": "A real-time hospital appointment booking assistant that allows users to interact through natural voice conversations for booking, cancelling, updating and viewing appointments.",
-            "github_url":"https://github.com/Cyberpradeep/Conversational_ai_for_appointment_booking.git",
+            "github_url": "https://github.com/Cyberpradeep/Conversational_ai_for_appointment_booking.git",
             "problem_statement": "Traditional hospital appointment systems require manual interaction, waiting times and complex navigation. The goal was to create a natural voice-based assistant that could handle appointment workflows through both web and phone channels.",
             "my_role": [
                 "Voice AI Development",
@@ -57,7 +57,9 @@
                 "Agent Orchestration",
                 "Context Management",
                 "Function Calling",
-                "FSM-Based Workflow Design"
+                "FSM-Based Workflow Design",
+                "Deterministic Orchestration",
+                "Conversation State Management"
             ],
             "major_challenges": [
                 {
@@ -95,7 +97,10 @@
                 "Speech-to-Speech Architecture",
                 "Telephony Integration",
                 "Real-Time AI Systems",
-                "Production AI Challenges"
+                "Production AI Challenges",
+                "Deterministic Workflow Design",
+                "FSM-Based Orchestration",
+                "Token and Context Optimization"
             ],
             "skills_demonstrated": [
                 "Gemini Live",
@@ -118,7 +123,7 @@
                 "Conversational AI"
             ],
             "summary": "A multilingual voice-based AI companion capable of acting as a tutor, mentor, companion and conversational partner.",
-            "github_url":"https://github.com/Cyberpradeep/AI_English_Tutor_Conversational_AI.git",
+            "github_url": "https://github.com/Cyberpradeep/AI_English_Tutor_Conversational_AI.git",
             "problem_statement": "Many learners struggle to practice spoken English consistently. The goal was to provide a natural conversational companion available anytime.",
             "my_role": [
                 "Full Stack Development",
@@ -176,7 +181,8 @@
                 "Voice UX Design",
                 "Real-Time Audio Systems",
                 "Avatar Integration",
-                "AI Personality Design"
+                "AI Personality Design",
+                "Conversation Memory and Context Handling"
             ]
         },
         {
@@ -240,7 +246,7 @@
             "type": "Personal Project",
             "status": "Completed",
             "summary": "An LLM-powered code review assistant capable of reviewing uploaded or pasted source code.",
-            "github_url":"https://github.com/Cyberpradeep/GenAI_Coaach_ChatBot.git",
+            "github_url": "https://github.com/Cyberpradeep/GenAI_Coaach_ChatBot.git",
             "technologies": [
                 "Gemini",
                 "Python"
@@ -261,7 +267,7 @@
                 "College Project"
             ],
             "summary": "A meal pre-ordering platform allowing students to order food before reaching the canteen.",
-            "github_url":"https://github.com/Cyberpradeep/canteen_preorder_app.git",
+            "github_url": "https://github.com/Cyberpradeep/canteen_preorder_app.git",
             "my_contributions": [
                 "Backend Development",
                 "Authentication",
@@ -289,7 +295,7 @@
             "status": "Completed",
             "organization": "Edunet Foundation",
             "summary": "Machine Learning-based email spam classification system.",
-            "github_url":"https://github.com/Cyberpradeep/Email_Spam_checker.git",
+            "github_url": "https://github.com/Cyberpradeep/Email_Spam_checker.git",
             "technologies": [
                 "Python",
                 "Machine Learning",
@@ -306,6 +312,58 @@
                 "Machine Learning Fundamentals",
                 "Model Deployment",
                 "Data Preprocessing"
+            ]
+        },
+        {
+            "id": "pizza_bot",
+            "name": "PizzaBot (Azure AI Foundry Autonomous Agent)",
+            "aliases": [
+                "pizzabot",
+                "pizza bot",
+                "pizza-agent-azure-foundry",
+                "pizza agent"
+            ],
+            "type": "Learning / Experimental Project",
+            "status": "Completed / Learning Project",
+            "category": [
+                "Agentic AI",
+                "Azure AI Foundry",
+                "RAG Systems",
+                "MCP Protocol",
+                "Conversational Commerce"
+            ],
+            "summary": "A learning-focused conversational agent built while studying Azure AI Foundry and preparing for the AI-103 certification. The project was used to learn and practically experiment with agent development, vector RAG, MCP connectivity, tool usage, multi-store reasoning, and bounded agent behavior.",
+            "github_url": "https://github.com/Cyberpradeep/pizza-agent-azure-foundry",
+            "problem_statement": "The project was created as a practical way to understand how Azure AI Foundry agents, RAG, MCP, tools, and structured constraints can be combined into a conversational application.",
+            "my_role": [
+                "Agent Architecture Exploration",
+                "Azure AI Foundry Agent Service Learning",
+                "Vector RAG Implementation",
+                "Model Context Protocol (MCP) Tools Setup",
+                "Hands-On Experimentation"
+            ],
+            "technologies": {
+                "models": [
+                    "Azure OpenAI GPT-4o / GPT-4o-mini"
+                ],
+                "frameworks": [
+                    "Azure AI Foundry Agent Service",
+                    "Azure AI Projects SDK",
+                    "Python",
+                    "FastAPI"
+                ],
+                "protocols": [
+                    "Model Context Protocol (MCP)",
+                    "Vector RAG"
+                ]
+            },
+            "features": [
+                "Conversational Pizza Ordering",
+                "Vector RAG Menu & Ingredient Search",
+                "Model Context Protocol (MCP) Connectivity",
+                "Multi-Store Location & Timezone Awareness (20 Global Stores)",
+                "Group Size Party Estimator",
+                "Bounded Agent Behavior"
             ]
         }
     ]

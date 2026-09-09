@@ -14,7 +14,9 @@
             "MSME Ideathon Participant",
             "Client-Facing AI Project Experience",
             "Voice AI Development Experience",
-            "Open Source Issue Contributions"
+            "Open Source Issue Contributions",
+            "Completed AI-103 Certification",
+            "Agent Architecture and Orchestration Research"
         ]
     },
     "volunteer_experience": [
@@ -113,6 +115,18 @@
         {
             "title": "First Multi-Agent Development Experience",
             "year": 2026
+        },
+        {
+            "title": "Completed AI-103 Certification",
+            "year": 2026
+        },
+        {
+            "title": "Agent Loop and Harness Research",
+            "year": 2026
+        },
+        {
+            "title": "Deterministic Orchestration and FSM Exploration",
+            "year": 2026
         }
     ],
     "open_source_contributions": [
@@ -136,7 +150,9 @@
                 "Gemini Live",
                 "OpenAI Realtime Models",
                 "PersonaPlex",
-                "Speech-to-Speech Systems"
+                "Speech-to-Speech Systems",
+                "Real-Time Audio Streaming",
+                "Telephony Integration"
             ]
         },
         {
@@ -146,7 +162,11 @@
                 "Microsoft Agent Framework",
                 "Tool Calling",
                 "Function Calling",
-                "Agent Orchestration"
+                "Agent Orchestration",
+                "Agent Loops",
+                "Agent Harnesses",
+                "Deterministic Orchestration",
+                "FSM-Based Workflows"
             ]
         },
         {
@@ -156,7 +176,8 @@
                 "Context Slicing",
                 "Token Optimization",
                 "Conversation Memory",
-                "FSM-Based Workflows"
+                "FSM-Based Workflows",
+                "Conversation State Management"
             ]
         }
     ],

@@ -19,7 +19,7 @@
         {
             "year": 2026,
             "milestone": "Transitioned towards AI Engineering",
-            "description": "Joined Elverve and started working on Agentic AI, Voice AI and client-facing AI applications."
+            "description": "Joined Elverve and began working on AI and AI-agent projects, with hands-on exposure to Voice AI, context engineering, agent orchestration, real-time systems, and AI research."
         }
     ],
     "professional_experience": [
@@ -72,7 +72,8 @@
                 "Agentic AI",
                 "Voice AI",
                 "LLM Applications",
-                "AI Product Development"
+                "AI Product Development",
+                "AI Research and Experimentation"
             ],
             "responsibilities": [
                 "Voice AI Development",
@@ -80,12 +81,18 @@
                 "Prompt Engineering",
                 "Context Engineering",
                 "AI Research",
+                "Agent Architecture Exploration",
+                "Agent Loop and Harness Research",
+                "Deterministic Orchestration Exploration",
+                "FSM-Based Workflow Design",
+                "Model Behavior Experimentation",
                 "Client Project Development",
                 "Documentation Reading",
                 "Technology Exploration",
                 "Backend Development"
             ],
             "technologies": [
+                "Gemini Models",
                 "Gemini Live",
                 "Gemini API",
                 "FastAPI",
@@ -93,11 +100,12 @@
                 "Pipecat",
                 "WebSockets",
                 "Generative UI",
-                "CrewAI"
+                "CrewAI",
+                "MCP"
             ],
             "client_exposure": {
                 "has_client_experience": true,
-                "description": "Worked on real-world client-oriented AI projects involving voice agents, conversational AI systems and intelligent automation solutions."
+                "description": "Worked on real-world AI and AI-agent projects involving conversational systems, Voice AI, real-time interactions, and intelligent workflows. Company-specific implementation details are intentionally not exposed in the portfolio."
             },
             "projects": [
                 "Hospital Voice AI Assistant"
@@ -105,11 +113,17 @@
             "major_learnings": [
                 "Real-Time AI Systems",
                 "Voice AI Architectures",
+                "Speech-to-Speech Systems",
                 "Context Engineering",
                 "Prompt Engineering",
                 "Token Optimization",
-                "Conversation Design",
+                "Conversation State Management",
                 "Agent Orchestration",
+                "Deterministic Orchestration",
+                "FSM-Based Workflows",
+                "Agent Loops and Agent Harnesses",
+                "Gemini Model Behavior and Configuration",
+                "MCP and Tool Integration",
                 "Telephony Integration"
             ],
             "professional_growth": [
@@ -117,6 +131,8 @@
                 "Independent Research",
                 "Debugging Complex Systems",
                 "Working With Client Requirements",
+                "Researching New AI Architectures",
+                "Testing and Comparing AI Approaches",
                 "Production-Oriented Thinking"
             ]
         }
@@ -172,44 +188,67 @@
             "organization": "Edunet Foundation"
         },
         {
-            "milestone": "First Real Client Project",
+            "milestone": "First Industry Internship",
             "year": 2026,
             "organization": "Elverve"
         },
         {
-            "milestone": "First Voice AI Application",
+            "milestone": "First Client-Facing AI Project",
             "year": 2026,
             "project": "Hospital Voice AI Assistant"
         },
         {
-            "milestone": "First Telephony-Based AI System",
+            "milestone": "First Voice AI System",
             "year": 2026,
             "project": "Hospital Voice AI Assistant"
         },
         {
-            "milestone": "First Generative UI Project",
+            "milestone": "First Telephony-Based AI Agent",
+            "year": 2026,
+            "project": "Hospital Voice AI Assistant"
+        },
+        {
+            "milestone": "First Generative UI Integration",
             "year": 2026
         },
         {
-            "milestone": "First Multi-Agent Experiment",
+            "milestone": "First Multi-Agent Development Experience",
+            "year": 2026
+        },
+        {
+            "milestone": "Completed AI-103 Certification",
+            "year": 2026,
+            "organization": "Microsoft"
+        },
+        {
+            "milestone": "Hands-On Agent Loop and Harness Research",
+            "year": 2026
+        },
+        {
+            "milestone": "Hands-On Deterministic Orchestration and FSM Exploration",
             "year": 2026
         }
     ],
     "experience_summary": {
         "years_of_ai_exposure": "Approximately 2+ years",
         "specializations": [
-            "Voice AI",
             "Agentic AI",
+            "Voice AI",
             "Context Engineering",
-            "Prompt Engineering",
-            "Real-Time AI Systems"
+            "Agent Orchestration",
+            "Deterministic Orchestration",
+            "FSM-Based Workflows",
+            "Real-Time AI Systems",
+            "LLM Applications"
         ],
         "real_world_experience": [
+            "AI and AI-Agent Projects",
             "Client Projects",
             "Voice AI Applications",
             "Agentic AI Systems",
             "Telephony Integration",
-            "Generative UI"
+            "Generative UI",
+            "Context and Token Optimization"
         ]
     }
 }

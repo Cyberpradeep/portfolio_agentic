@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import { tvScreenManager, ScreenModes } from './tvScreenManager.js';
+import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=57';
 import { animationController } from './animationController.js';
 import { mechanicalController } from './mechanicalController.js';
 import { soundFX } from './soundFx.js';
@@ -430,39 +430,49 @@ export const AvatarController = {
   setAvatarState(stateStr) {
     const s = (stateStr || 'idle').toLowerCase();
     if (s === 'listening') {
-      tvScreenManager.setMode(ScreenModes.LISTENING);
+      if (!tvScreenManager.isImageLocked) {
+        tvScreenManager.setMode(ScreenModes.LISTENING);
+        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+      }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
-      glideToTarget(CAMERA_PRESETS.FACE_CAM);
     } else if (s === 'thinking') {
-      tvScreenManager.setMode(ScreenModes.THINKING);
+      if (!tvScreenManager.isImageLocked) {
+        tvScreenManager.setMode(ScreenModes.THINKING);
+        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+      }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
-      glideToTarget(CAMERA_PRESETS.FACE_CAM);
     } else if (s === 'speaking') {
-      tvScreenManager.setMode(ScreenModes.SPEAKING);
+      if (!tvScreenManager.isImageLocked) {
+        tvScreenManager.setMode(ScreenModes.SPEAKING);
+        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+      }
       animationController.setSpeakingState(true);
-      glideToTarget(CAMERA_PRESETS.FACE_CAM);
     } else {
-      tvScreenManager.setMode(ScreenModes.IDLE);
+      if (!tvScreenManager.isImageLocked) {
+        tvScreenManager.setMode(ScreenModes.IDLE);
+        scheduleGlideToOverview(4000);
+      }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
-      scheduleGlideToOverview(4000);
     }
   },
 
   setSpeaking(isSpeaking) {
     if (isSpeaking) {
-      tvScreenManager.setMode(ScreenModes.SPEAKING);
+      if (!tvScreenManager.isImageLocked) {
+        tvScreenManager.setMode(ScreenModes.SPEAKING);
+        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+      }
       animationController.setSpeakingState(true);
-      glideToTarget(CAMERA_PRESETS.FACE_CAM);
     } else {
-      if (tvScreenManager.currentMode === ScreenModes.SPEAKING) {
+      if (!tvScreenManager.isImageLocked && tvScreenManager.currentMode === ScreenModes.SPEAKING) {
         tvScreenManager.setMode(ScreenModes.IDLE);
+        scheduleGlideToOverview(4000);
       }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
-      scheduleGlideToOverview(4000);
     }
   },
 
@@ -485,14 +495,23 @@ export const AvatarController = {
     }
   },
 
-  displayImage(url, title = '') {
-    tvScreenManager.displayImage(url, title);
+  displayImage(url, title = '', lock = true) {
+    tvScreenManager.displayImage(url, title, lock);
+    glideToTarget(CAMERA_PRESETS.SCREEN_CLOSEUP);
+  },
+
+  displayImageCarousel(images, interval = 3.8) {
+    tvScreenManager.displayImageCarousel(images, interval);
     glideToTarget(CAMERA_PRESETS.SCREEN_CLOSEUP);
   },
 
   clearImage() {
     tvScreenManager.clearImage();
     glideToTarget(CAMERA_PRESETS.FULL_BODY);
+  },
+
+  unlockScreen() {
+    tvScreenManager.unlockImageMode();
   },
 
   setCameraPreset(presetKey) {

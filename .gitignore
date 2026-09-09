@@ -15,3 +15,8 @@
 # Allow the base_pipeline project files.
 !/base_pipeline/
 !/base_pipeline/**
+
+# Ignore data backups and zip files
+base_pipeline/**/data_backup_old/
+base_pipeline/**/data_backup_old/**
+*.zip

@@ -90,10 +90,32 @@ export class TVScreenManager {
     // Custom message
     this.customMessage = 'PRADEEP AI';
 
-    // Image display state
+    // Image display and carousel state
     this.currentImage = null;
     this.imageTitle = '';
     this.imageLoaded = false;
+    this.isImageLocked = false;
+    this.isCarouselActive = false;
+    this.carouselImages = [];
+    this.carouselIndex = 0;
+    this.carouselTimer = 0;
+    this.carouselInterval = 3.8;
+    this.onCarouselChange = null;
+
+    // Preloaded Creator Profile Image (for occasional idle easter egg flash)
+    this.profileImage = new Image();
+    this.profileImage.crossOrigin = 'anonymous';
+    this.profileImageLoaded = false;
+    this.profileImage.onload = () => {
+      this.profileImageLoaded = true;
+    };
+    this.profileImage.src = '/static/assests/profile_image-sketch.jpg';
+
+    // Idle Easter Egg Flash State (creator biometric projection)
+    this.idleFlashTimer = 0;
+    this.nextIdleFlashInterval = 6 + Math.random() * 4; // First flash in 6-10s
+    this.isShowingIdleFlash = false;
+    this.idleFlashRemaining = 0;
 
     // Point Light colors (synced to screen glow)
     this.lightColor = new THREE.Color(0x38bdf8);
@@ -101,9 +123,20 @@ export class TVScreenManager {
   }
 
   setMode(mode) {
+    // When locked to certificate image display, do not allow speech/thinking/listening to overwrite screen
+    if (this.isImageLocked && mode !== ScreenModes.IMAGE) {
+      return;
+    }
     if (this.currentMode === mode) return;
     this.triggerGlitch(0.18);
     this.currentMode = mode;
+
+    // Abort active idle flash immediately if mode changes away from IDLE
+    if (mode !== ScreenModes.IDLE) {
+      this.isShowingIdleFlash = false;
+      this.idleFlashRemaining = 0;
+      this.idleFlashTimer = 0;
+    }
 
     switch (mode) {
       case ScreenModes.LOADING:
@@ -113,6 +146,7 @@ export class TVScreenManager {
       case ScreenModes.IDLE:
         this.lightColor.setHex(0x38bdf8); // Clean cyan
         this.lightIntensity = 2.2;
+        this.nextIdleFlashInterval = 7 + Math.random() * 5; // Fast 7-12s when entering idle
         break;
       case ScreenModes.LISTENING:
         this.lightColor.setHex(0x10b981); // Emerald pulse
@@ -177,17 +211,22 @@ export class TVScreenManager {
     this.glitchTime = duration;
   }
 
-  displayImage(url, title = '') {
+  displayImage(url, title = '', lock = true) {
     this.triggerGlitch(0.25);
     this.imageTitle = title || '';
     this.imageLoaded = false;
+    if (lock) {
+      this.isImageLocked = true;
+    }
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       this.currentImage = img;
       this.imageLoaded = true;
-      this.setMode(ScreenModes.IMAGE);
+      this.currentMode = ScreenModes.IMAGE;
+      this.lightColor.setHex(0x0ea5e9);
+      this.lightIntensity = 3.2;
     };
     img.onerror = (err) => {
       console.error('[TV_SCREEN] Failed to load image:', url, err);
@@ -195,16 +234,36 @@ export class TVScreenManager {
     img.src = url;
   }
 
+  displayImageCarousel(imagesList, intervalSec = 3.8) {
+    if (!imagesList || imagesList.length === 0) return;
+    this.carouselImages = imagesList;
+    this.carouselIndex = 0;
+    this.carouselInterval = intervalSec || 3.8;
+    this.carouselTimer = 0;
+    this.isCarouselActive = true;
+    this.isImageLocked = true;
+    const first = imagesList[0];
+    this.displayImage(first.url || first.image, first.title || first.name, true);
+  }
+
   clearImage() {
     this.currentImage = null;
     this.imageLoaded = false;
     this.imageTitle = '';
+    this.isImageLocked = false;
+    this.isCarouselActive = false;
+    this.carouselImages = [];
+    this.currentMode = ScreenModes.IDLE;
     this.setMode(ScreenModes.IDLE);
+  }
+
+  unlockImageMode() {
+    this.clearImage();
   }
 
   setTranscript(text) {
     this.transcriptText = text || '';
-    if (this.currentMode === ScreenModes.IDLE && this.transcriptText) {
+    if (this.currentMode === ScreenModes.IDLE && this.transcriptText && !this.isImageLocked) {
       this.setMode(ScreenModes.SPEAKING);
     }
   }
@@ -268,6 +327,21 @@ export class TVScreenManager {
       }
     }
 
+    // Image Carousel / Slideshow Progression
+    if (this.isCarouselActive && this.carouselImages.length > 1 && this.currentMode === ScreenModes.IMAGE) {
+      this.carouselTimer += deltaTime;
+      if (this.carouselTimer >= this.carouselInterval) {
+        this.carouselTimer = 0;
+        this.carouselIndex = (this.carouselIndex + 1) % this.carouselImages.length;
+        const nextItem = this.carouselImages[this.carouselIndex];
+        this.triggerGlitch(0.22);
+        this.displayImage(nextItem.url || nextItem.image, nextItem.title || nextItem.name, true);
+        if (typeof this.onCarouselChange === 'function') {
+          this.onCarouselChange(this.carouselIndex, nextItem);
+        }
+      }
+    }
+
     // Eye Blink Timer
     this.blinkTimer += deltaTime;
     if (this.blinkTimer > 3.4) {
@@ -290,13 +364,36 @@ export class TVScreenManager {
     this.eyeCurrentX = THREE.MathUtils.lerp(this.eyeCurrentX, this.eyeTargetX, deltaTime * 10);
     this.eyeCurrentY = THREE.MathUtils.lerp(this.eyeCurrentY, this.eyeTargetY, deltaTime * 10);
 
+    // Periodic Creator Photo Easter Egg Flash during IDLE (infrequent 1-2s flash)
+    if (this.currentMode === ScreenModes.IDLE && this.profileImageLoaded) {
+      if (!this.isShowingIdleFlash) {
+        this.idleFlashTimer += deltaTime;
+        if (this.idleFlashTimer >= this.nextIdleFlashInterval) {
+          this.isShowingIdleFlash = true;
+          this.idleFlashRemaining = 2.0;
+          this.triggerGlitch(0.2);
+          this.idleFlashTimer = 0;
+          this.nextIdleFlashInterval = 12 + Math.random() * 6; // Next flash in 12-18s
+        }
+      } else {
+        this.idleFlashRemaining -= deltaTime;
+        if (this.idleFlashRemaining <= 0) {
+          this.isShowingIdleFlash = false;
+          this.idleFlashRemaining = 0;
+          this.triggerGlitch(0.2);
+        }
+      }
+    } else {
+      this.idleFlashTimer = 0;
+    }
+
     const { ctx, canvas } = this;
     const w = 512;
     const h = 512;
 
     // Dynamic emissive pulse matching speech volume
     if (this.screenMaterial) {
-      if (this.currentMode === ScreenModes.IMAGE) {
+      if (this.currentMode === ScreenModes.IMAGE || (this.currentMode === ScreenModes.IDLE && this.isShowingIdleFlash)) {
         this.screenMaterial.emissiveIntensity = 0.55;
       } else {
         this.screenMaterial.emissiveIntensity = 1.45 + this.speechVolumeSmoothed * 0.45;
@@ -314,7 +411,11 @@ export class TVScreenManager {
         this.renderLoading(ctx, w, h);
         break;
       case ScreenModes.IDLE:
-        this.renderIdleAttentive(ctx, w, h);
+        if (this.isShowingIdleFlash && this.profileImageLoaded) {
+          this.renderProfileFlash(ctx, w, h);
+        } else {
+          this.renderIdleAttentive(ctx, w, h);
+        }
         break;
       case ScreenModes.LISTENING:
         this.renderListening(ctx, w, h);
@@ -447,6 +548,83 @@ export class TVScreenManager {
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 2;
     ctx.strokeRect(w / 2 - 120, h - 56, 240, 32);
+  }
+
+  // --- 1B. IDLE EASTER EGG: CREATOR BIOMETRIC FLASH (1-2s Hologram) ---
+  renderProfileFlash(ctx, w, h) {
+    ctx.fillStyle = '#060a12';
+    ctx.fillRect(0, 0, w, h);
+
+    if (!this.profileImage || !this.profileImageLoaded) {
+      this.renderIdleAttentive(ctx, w, h);
+      return;
+    }
+
+    this.renderTelemetryGrid(ctx, w, h);
+
+    const img = this.profileImage;
+    // Square size: 360x360 centered with room for telemetry
+    const size = 356;
+    const drawX = (w - size) / 2;
+    const drawY = (h - size) / 2 - 4;
+
+    // Header Telemetry
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '700 13px "Space Grotesk", "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('IDENTITY // PRADEEP SELLADURAI', w / 2, drawY - 14);
+
+    // Glowing cyan frame with soft shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.55)';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(drawX - 2, drawY - 2, size + 4, size + 4);
+
+    // Draw crisp creator profile image
+    ctx.drawImage(img, drawX, drawY, size, size);
+    ctx.restore();
+
+    // Sleek Corner HUD Brackets
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 3;
+    const corner = 20;
+    // Top-Left
+    ctx.beginPath();
+    ctx.moveTo(drawX - 8, drawY + corner);
+    ctx.lineTo(drawX - 8, drawY - 8);
+    ctx.lineTo(drawX + corner, drawY - 8);
+    ctx.stroke();
+    // Top-Right
+    ctx.beginPath();
+    ctx.moveTo(drawX + size - corner, drawY - 8);
+    ctx.lineTo(drawX + size + 8, drawY - 8);
+    ctx.lineTo(drawX + size + 8, drawY + corner);
+    ctx.stroke();
+    // Bottom-Left
+    ctx.beginPath();
+    ctx.moveTo(drawX - 8, drawY + size - corner);
+    ctx.lineTo(drawX - 8, drawY + size + 8);
+    ctx.lineTo(drawX + corner, drawY + size + 8);
+    ctx.stroke();
+    // Bottom-Right
+    ctx.beginPath();
+    ctx.moveTo(drawX + size - corner, drawY + size + 8);
+    ctx.lineTo(drawX + size + 8, drawY + size + 8);
+    ctx.lineTo(drawX + size + 8, drawY + size - corner);
+    ctx.stroke();
+
+    // Footer Biometric Status
+    ctx.fillStyle = '#10b981';
+    ctx.font = '700 12px "Space Grotesk", "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('● NEURAL ARCHETYPE // SYNCHRONIZED', w / 2, drawY + size + 24);
+
+    // Subtle horizontal scanline beam sweep
+    const beamY = drawY + ((this.time * 240) % size);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+    ctx.fillRect(drawX, beamY, size, 4);
   }
 
   // --- 2. LISTENING MODE (Receptive Pulse & Radar Eyes) ---
@@ -998,10 +1176,12 @@ export class TVScreenManager {
     const img = this.currentImage;
     const imgAspect = img.width / img.height;
 
-    // Fill screen maximally with minimal 6px padding
-    const padding = 6;
+    // Allocate vertical space for HUD header & title footer
+    const padding = 10;
+    const headerH = 38;
+    const footerH = 46;
     const availW = w - padding * 2;
-    const availH = h - padding * 2;
+    const availH = h - headerH - footerH;
 
     let drawW = availW;
     let drawH = availW / imgAspect;
@@ -1012,7 +1192,7 @@ export class TVScreenManager {
     }
 
     const drawX = (w - drawW) / 2;
-    const drawY = (h - drawH) / 2;
+    const drawY = headerH + (availH - drawH) / 2;
 
     this.renderTelemetryGrid(ctx, w, h);
 
@@ -1028,39 +1208,82 @@ export class TVScreenManager {
     ctx.drawImage(img, drawX, drawY, drawW, drawH);
     ctx.restore();
 
-    // Subtle sleek corner brackets
+    // Sleek corner brackets
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 3;
-    const corner = 16;
+    const corner = 14;
     // Top-left
     ctx.beginPath();
-    ctx.moveTo(drawX - 4, drawY + corner);
-    ctx.lineTo(drawX - 4, drawY - 4);
-    ctx.lineTo(drawX + corner, drawY - 4);
+    ctx.moveTo(drawX - 3, drawY + corner);
+    ctx.lineTo(drawX - 3, drawY - 3);
+    ctx.lineTo(drawX + corner, drawY - 3);
     ctx.stroke();
     // Top-right
     ctx.beginPath();
-    ctx.moveTo(drawX + drawW - corner, drawY - 4);
-    ctx.lineTo(drawX + drawW + 4, drawY - 4);
-    ctx.lineTo(drawX + drawW + 4, drawY + corner);
+    ctx.moveTo(drawX + drawW - corner, drawY - 3);
+    ctx.lineTo(drawX + drawW + 3, drawY - 3);
+    ctx.lineTo(drawX + drawW + 3, drawY + corner);
     ctx.stroke();
     // Bottom-left
     ctx.beginPath();
-    ctx.moveTo(drawX - 4, drawY + drawH - corner);
-    ctx.lineTo(drawX - 4, drawY + drawH + 4);
-    ctx.lineTo(drawX + corner, drawY + drawH + 4);
+    ctx.moveTo(drawX - 3, drawY + drawH - corner);
+    ctx.lineTo(drawX - 3, drawY + drawH + 3);
+    ctx.lineTo(drawX + corner, drawY + drawH + 3);
     ctx.stroke();
     // Bottom-right
     ctx.beginPath();
-    ctx.moveTo(drawX + drawW - corner, drawY + drawH + 4);
-    ctx.lineTo(drawX + drawW + 4, drawY + drawH + 4);
-    ctx.lineTo(drawX + drawW + 4, drawY + drawH - corner);
+    ctx.moveTo(drawX + drawW - corner, drawY + drawH + 3);
+    ctx.lineTo(drawX + drawW + 3, drawY + drawH + 3);
+    ctx.lineTo(drawX + drawW + 3, drawY + drawH - corner);
     ctx.stroke();
+
+    // --- Header HUD Banner ---
+    ctx.fillStyle = 'rgba(10, 18, 30, 0.85)';
+    ctx.fillRect(padding, 8, w - padding * 2, 24);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(padding, 8, w - padding * 2, 24);
+
+    // Status Indicator Dot
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(padding + 12, 20, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '700 10px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('VERIFIED ACCREDITATION // PRADEEP', padding + 22, 23);
+
+    if (this.isCarouselActive && this.carouselImages.length > 1) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillText(`0${this.carouselIndex + 1} / 0${this.carouselImages.length}`, w - padding - 12, 23);
+    } else {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('DIRECT SPECIFICATION', w - padding - 12, 23);
+    }
+
+    // --- Footer Title Banner ---
+    if (this.imageTitle) {
+      ctx.fillStyle = 'rgba(8, 14, 24, 0.92)';
+      ctx.fillRect(padding, h - 40, w - padding * 2, 30);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(padding, h - 40, w - padding * 2, 30);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 11px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      const cleanTitle = this.imageTitle.replace(/^Microsoft Certified:\s*/i, '');
+      ctx.fillText(cleanTitle.toUpperCase(), w / 2, h - 21);
+    }
   }
 
   renderScanlines(ctx, w, h) {
-    // Lighter scanlines in IMAGE mode so small text remains sharp and legible
-    const alpha = this.currentMode === ScreenModes.IMAGE ? 0.05 : 0.16;
+    // Lighter scanlines in IMAGE mode or during creator profile flash so images remain crisp
+    const alpha = (this.currentMode === ScreenModes.IMAGE || (this.currentMode === ScreenModes.IDLE && this.isShowingIdleFlash)) ? 0.05 : 0.16;
     ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
     for (let y = 0; y < h; y += 3) {
       ctx.fillRect(0, y, w, 1.2);

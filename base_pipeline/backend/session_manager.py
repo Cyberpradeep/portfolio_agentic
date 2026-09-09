@@ -75,7 +75,10 @@ class SessionManager:
                 session.is_active = False
                 session.watchdog_task = None
                 if on_timeout:
-                    await on_timeout(session_id)
+                    try:
+                        await on_timeout(session_id)
+                    except TypeError:
+                        await on_timeout()
             except asyncio.CancelledError:
                 pass
 
