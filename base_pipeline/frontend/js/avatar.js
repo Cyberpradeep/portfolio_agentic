@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
-import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=57';
-import { animationController } from './animationController.js';
+import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=58';
+import { animationController } from './animationController.js?v=5';
 import { mechanicalController } from './mechanicalController.js';
 import { soundFX } from './soundFx.js';
 
@@ -16,6 +17,8 @@ let pointer = new THREE.Vector2();
 let isInitialized = false;
 let idleCameraTimer = null;
 let isGenUIActive = false;
+let isUserInteracting = false;
+let userInteractionTimeout = null;
 
 const CAMERA_PRESETS = {
   FULL_BODY: { pos: new THREE.Vector3(0, 1.85, 4.3), lookAt: new THREE.Vector3(0, 1.75, 0) },
@@ -26,6 +29,88 @@ const CAMERA_PRESETS = {
   // Studio 3-Quarter Angle
   STUDIO_3Q: { pos: new THREE.Vector3(-1.8, 1.95, 3.8), lookAt: new THREE.Vector3(0, 1.75, 0) }
 };
+
+let currentActivePreset = CAMERA_PRESETS.FULL_BODY;
+
+function getResponsiveCameraPreset(preset) {
+  if (!preset) return { pos: new THREE.Vector3(0, 1.85, 4.3), lookAt: new THREE.Vector3(0, 1.75, 0) };
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspect = width / height;
+
+  const isFaceCam = (preset === CAMERA_PRESETS.FACE_CAM || preset === CAMERA_PRESETS.SCREEN_CLOSEUP);
+
+  if (aspect < 0.55) {
+    // Ultra-tall mobile portrait (Pixel 8, iPhone 14/15/16 Pro Max, Galaxy S series)
+    if (isGenUIActive) {
+      // Frame TV head centered in the upper ~55% viewport above the compact bottom sheet
+      return {
+        pos: new THREE.Vector3(0, 2.24, 3.80),
+        lookAt: new THREE.Vector3(0, 2.04, 0)
+      };
+    }
+    if (isFaceCam) {
+      // Zoom into TV head with wings safely below the topbar header
+      return {
+        pos: new THREE.Vector3(0, 2.05, 4.20),
+        lookAt: new THREE.Vector3(0, 1.78, 0)
+      };
+    }
+    // Full body overview: wings reach below topbar, TV head centered above card
+    return {
+      pos: new THREE.Vector3(0, 1.65, 5.70),
+      lookAt: new THREE.Vector3(0, 1.45, 0)
+    };
+  } else if (aspect < 0.85) {
+    // Standard mobile & phablet portrait (e.g. 375x667, 390x844, 412x915, 768px tablet portrait)
+    if (isGenUIActive) {
+      return {
+        pos: new THREE.Vector3(0, 2.20, 3.75),
+        lookAt: new THREE.Vector3(0, 2.00, 0)
+      };
+    }
+    if (isFaceCam) {
+      return {
+        pos: new THREE.Vector3(0, 2.00, 4.10),
+        lookAt: new THREE.Vector3(0, 1.75, 0)
+      };
+    }
+    return {
+      pos: new THREE.Vector3(0, 1.65, 5.40),
+      lookAt: new THREE.Vector3(0, 1.45, 0)
+    };
+  } else if (aspect < 1.05) {
+    // Tablets in portrait / Square foldables
+    if (isGenUIActive) {
+      return {
+        pos: new THREE.Vector3(0, 2.20, 3.40),
+        lookAt: new THREE.Vector3(0, 2.00, 0)
+      };
+    }
+    if (isFaceCam) {
+      return {
+        pos: new THREE.Vector3(0, 2.15, 3.40),
+        lookAt: new THREE.Vector3(0, 1.90, 0)
+      };
+    }
+    return {
+      pos: new THREE.Vector3(0, 1.75, 4.80),
+      lookAt: new THREE.Vector3(0, 1.55, 0)
+    };
+  } else if (height < 540) {
+    // Short landscape mobile screens
+    return {
+      pos: new THREE.Vector3(preset.pos.x, preset.pos.y - 0.05, preset.pos.z * 1.25),
+      lookAt: new THREE.Vector3(preset.lookAt.x, preset.lookAt.y, preset.lookAt.z)
+    };
+  }
+
+  // Desktop default
+  return {
+    pos: preset.pos.clone(),
+    lookAt: preset.lookAt.clone()
+  };
+}
 
 const cameraTarget = {
   pos: new THREE.Vector3(0, 1.85, 4.3),
@@ -42,11 +127,15 @@ function initScene(canvasId) {
   scene = new THREE.Scene();
   scene.background = null;
 
-  // 2. Camera
+  // 2. Camera with responsive distance calibration
   const width = container.clientWidth || window.innerWidth;
   const height = container.clientHeight || window.innerHeight;
   camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 500);
-  camera.position.copy(cameraTarget.pos);
+
+  const initial = getResponsiveCameraPreset(CAMERA_PRESETS.FULL_BODY);
+  cameraTarget.pos.copy(initial.pos);
+  cameraTarget.lookAt.copy(initial.lookAt);
+  camera.position.copy(initial.pos);
 
   // 3. Renderer with Native Hardware MSAA & ACESFilmic Tone Mapping
   renderer = new THREE.WebGLRenderer({
@@ -76,10 +165,28 @@ function initScene(canvasId) {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
-  controls.maxPolarAngle = Math.PI / 2 + 0.05;
-  controls.minDistance = 1.2;
-  controls.maxDistance = 10.0;
+  controls.enablePan = false; // Keeps avatar centered in studio stage
+  controls.maxPolarAngle = Math.PI / 2 + 0.05; // Do not go below floor plane
+  controls.minPolarAngle = Math.PI / 6; // Clamp top-down angle
+  controls.minDistance = 2.4; // Clamped close distance to prevent mesh clipping
+  controls.maxDistance = 6.2; // Clamped far distance to keep model framed
   controls.target.copy(cameraTarget.lookAt);
+
+  controls.addEventListener('start', () => {
+    isUserInteracting = true;
+    if (userInteractionTimeout) {
+      clearTimeout(userInteractionTimeout);
+      userInteractionTimeout = null;
+    }
+  });
+
+  controls.addEventListener('end', () => {
+    // When user finishes dragging/rotating, hold orientation for 3s before returning to active preset
+    if (userInteractionTimeout) clearTimeout(userInteractionTimeout);
+    userInteractionTimeout = setTimeout(() => {
+      isUserInteracting = false;
+    }, 3000);
+  });
 
   // 5. Studio Lighting
   setupStudioLighting();
@@ -95,7 +202,9 @@ function initScene(canvasId) {
 
   // 9. Window Listeners
   window.addEventListener('resize', onWindowResize);
+  window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 120));
   window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('touchmove', onTouchMove, { passive: true });
 
   // 10. Start Animation Loop
   animate();
@@ -220,6 +329,7 @@ function loadTitanModel() {
   const loadingScreen = document.getElementById('loadingOverlay');
   const percentEl = document.getElementById('introPercent');
   const statusTextEl = document.getElementById('introStatusText');
+  const progressWrapper = document.querySelector('.intro-progress-wrapper');
 
   // Start the character-by-character intro animation
   const introDuration = runIntroSequence();
@@ -227,21 +337,95 @@ function loadTitanModel() {
   let isIntroFinished = false;
   let isDismissing = false;
 
+  const startBtn = document.getElementById('startExperienceBtn');
+
+  // Seamlessly activate "Talk with me" button and fade out loading bar
   function tryDismissLoading() {
     if (isModelLoaded && isIntroFinished && !isDismissing) {
-      isDismissing = true;
       if (statusTextEl) statusTextEl.textContent = 'STAGE READY';
 
-      // Step 1: Smoothly float the intro text upwards
-      if (loadingScreen) loadingScreen.classList.add('is-exiting');
+      // 1. Smoothly fade out progress bar without layout shifting
+      if (progressWrapper) {
+        progressWrapper.classList.add('is-finished');
+      }
 
-      // Step 2: Smooth camera transition + sound FX + TV screen initialization
+      // 2. Activate "Talk with me" button
+      if (startBtn) {
+        startBtn.disabled = false;
+        startBtn.classList.add('is-ready');
+      }
+    }
+  }
+
+  let hasRevealedStage = false;
+
+  function reveal3DStage() {
+    if (hasRevealedStage) return;
+    hasRevealedStage = true;
+    console.log('[AUTOGREET] Inbound voice active: smoothly revealing 3D Titan stage...');
+    soundFX.playPowerSurge();
+    tvScreenManager.setMode(ScreenModes.SPEAKING);
+    if (loadingScreen) {
+      loadingScreen.classList.add('is-exiting');
       setTimeout(() => {
-        soundFX.playPowerSurge();
-        tvScreenManager.setMode(ScreenModes.IDLE);
-        if (loadingScreen) loadingScreen.classList.add('is-hidden');
+        loadingScreen.classList.add('is-hidden');
+        window.dispatchEvent(new CustomEvent('stage:ready'));
       }, 550);
     }
+  }
+
+  // Reveal stage dynamically when Gemini Live starts audio turn
+  window.addEventListener('session:ready_to_reveal', () => {
+    reveal3DStage();
+  });
+
+  if (startBtn) {
+    startBtn.addEventListener('click', () => {
+      if (isDismissing || startBtn.disabled) return;
+      isDismissing = true;
+      startBtn.classList.add('is-connecting');
+      startBtn.classList.remove('is-ready');
+
+      // 1. Morph button into Option A: animated soundwave pulse
+      const introActionText = document.getElementById('introAction');
+      if (introActionText) {
+        introActionText.innerHTML = `
+          <span class="intro-soundwave" aria-hidden="true">
+            <span class="sound-bar"></span>
+            <span class="sound-bar"></span>
+            <span class="sound-bar"></span>
+            <span class="sound-bar"></span>
+          </span>
+          <span class="intro-connecting-label">Connecting Neural Link...</span>
+        `;
+      }
+
+      // 2. Display live connection telemetry
+      if (progressWrapper) {
+        progressWrapper.classList.remove('is-finished');
+        progressWrapper.classList.add('is-connecting');
+      }
+      if (statusTextEl) {
+        statusTextEl.textContent = 'ESTABLISHING GEMINI AUDIO LINK...';
+      }
+      if (percentEl) {
+        percentEl.textContent = 'SYNC';
+      }
+
+      // 3. Fire audio unlock immediately on direct user gesture
+      window.dispatchEvent(new CustomEvent('session:unlock_audio'));
+
+      // 4. Trigger Gemini connection and greeting turn in background
+      window.dispatchEvent(new CustomEvent('session:start_greet'));
+
+      // 5. Safety fallback: if no audio packet arrives within 6.5s, reveal stage anyway
+      setTimeout(() => {
+        if (!hasRevealedStage) {
+          console.warn('[AUTOGREET] Safety timeout: revealing stage fallback');
+          reveal3DStage();
+        }
+      }, 6500);
+    });
   }
 
   setTimeout(() => {
@@ -273,10 +457,11 @@ function loadTitanModel() {
     }
   );
 
-  // Defer heavy 3D GLTF parsing until text animation has comfortably rendered
-  const modelUrl = '/static/model/tv_man_titan.glb';
+  // Defer 3D GLTF parsing until text animation has comfortably rendered
+  const modelUrl = '/static/model/tv_man_titan.optimized.glb';
   setTimeout(() => {
     const loader = new GLTFLoader(manager);
+    loader.setMeshoptDecoder(MeshoptDecoder);
 
     loader.load(
       modelUrl,
@@ -354,6 +539,13 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
+
+  // Auto-adapt camera framing for the new aspect ratio
+  if (currentActivePreset) {
+    const responsive = getResponsiveCameraPreset(currentActivePreset);
+    cameraTarget.pos.copy(responsive.pos);
+    cameraTarget.lookAt.copy(responsive.lookAt);
+  }
 }
 
 function onMouseMove(e) {
@@ -365,14 +557,28 @@ function onMouseMove(e) {
   }
 }
 
+function onTouchMove(e) {
+  if (e.touches && e.touches.length > 0) {
+    const touch = e.touches[0];
+    pointer.x = (touch.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+
+    if (tvScreenManager) {
+      tvScreenManager.setPointerLook(pointer.x, pointer.y);
+    }
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
   const delta = clock.getDelta();
 
-  // Smooth Camera Glide Interpolation
-  camera.position.lerp(cameraTarget.pos, delta * 2.8);
-  controls.target.lerp(cameraTarget.lookAt, delta * 2.8);
+  // Smooth Camera Glide Interpolation (only when user is not actively rotating/dragging)
+  if (!isUserInteracting) {
+    camera.position.lerp(cameraTarget.pos, delta * 2.5);
+    controls.target.lerp(cameraTarget.lookAt, delta * 2.5);
+  }
   controls.update();
 
   // Update Dynamic CRT TV Screen
@@ -405,19 +611,25 @@ function animate() {
 }
 
 function glideToTarget(preset) {
+  isUserInteracting = false;
+  if (userInteractionTimeout) {
+    clearTimeout(userInteractionTimeout);
+    userInteractionTimeout = null;
+  }
+  currentActivePreset = preset;
   if (idleCameraTimer) {
     clearTimeout(idleCameraTimer);
     idleCameraTimer = null;
   }
-  cameraTarget.pos.copy(preset.pos);
-  cameraTarget.lookAt.copy(preset.lookAt);
+  const responsive = getResponsiveCameraPreset(preset);
+  cameraTarget.pos.copy(responsive.pos);
+  cameraTarget.lookAt.copy(responsive.lookAt);
 }
 
 function scheduleGlideToOverview(delayMs = 4000) {
   if (idleCameraTimer) clearTimeout(idleCameraTimer);
   idleCameraTimer = setTimeout(() => {
-    cameraTarget.pos.copy(CAMERA_PRESETS.FULL_BODY.pos);
-    cameraTarget.lookAt.copy(CAMERA_PRESETS.FULL_BODY.lookAt);
+    glideToTarget(CAMERA_PRESETS.FULL_BODY);
   }, delayMs);
 }
 
@@ -478,6 +690,16 @@ export const AvatarController = {
 
   setGenUIActive(active) {
     isGenUIActive = !!active;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const aspect = width / height;
+    if (aspect < 0.88 || width <= 768) {
+      if (isGenUIActive) {
+        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+      } else {
+        scheduleGlideToOverview(1800);
+      }
+    }
   },
 
   updateTranscript(text) {
@@ -518,8 +740,7 @@ export const AvatarController = {
     const preset = CAMERA_PRESETS[presetKey];
     if (preset) {
       soundFX.playClick();
-      cameraTarget.pos.copy(preset.pos);
-      cameraTarget.lookAt.copy(preset.lookAt);
+      glideToTarget(preset);
     }
   },
 

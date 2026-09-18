@@ -54,7 +54,7 @@ export class AnimationController {
       });
     });
 
-    // Locate Head Bone
+    // Locate Head Bone for Natural Look-At Tracking
     model.traverse((child) => {
       if (child.isBone) {
         const name = child.name;

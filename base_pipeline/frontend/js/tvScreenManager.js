@@ -364,36 +364,13 @@ export class TVScreenManager {
     this.eyeCurrentX = THREE.MathUtils.lerp(this.eyeCurrentX, this.eyeTargetX, deltaTime * 10);
     this.eyeCurrentY = THREE.MathUtils.lerp(this.eyeCurrentY, this.eyeTargetY, deltaTime * 10);
 
-    // Periodic Creator Photo Easter Egg Flash during IDLE (infrequent 1-2s flash)
-    if (this.currentMode === ScreenModes.IDLE && this.profileImageLoaded) {
-      if (!this.isShowingIdleFlash) {
-        this.idleFlashTimer += deltaTime;
-        if (this.idleFlashTimer >= this.nextIdleFlashInterval) {
-          this.isShowingIdleFlash = true;
-          this.idleFlashRemaining = 2.0;
-          this.triggerGlitch(0.2);
-          this.idleFlashTimer = 0;
-          this.nextIdleFlashInterval = 12 + Math.random() * 6; // Next flash in 12-18s
-        }
-      } else {
-        this.idleFlashRemaining -= deltaTime;
-        if (this.idleFlashRemaining <= 0) {
-          this.isShowingIdleFlash = false;
-          this.idleFlashRemaining = 0;
-          this.triggerGlitch(0.2);
-        }
-      }
-    } else {
-      this.idleFlashTimer = 0;
-    }
-
     const { ctx, canvas } = this;
     const w = 512;
     const h = 512;
 
     // Dynamic emissive pulse matching speech volume
     if (this.screenMaterial) {
-      if (this.currentMode === ScreenModes.IMAGE || (this.currentMode === ScreenModes.IDLE && this.isShowingIdleFlash)) {
+      if (this.currentMode === ScreenModes.IMAGE) {
         this.screenMaterial.emissiveIntensity = 0.55;
       } else {
         this.screenMaterial.emissiveIntensity = 1.45 + this.speechVolumeSmoothed * 0.45;
@@ -411,11 +388,7 @@ export class TVScreenManager {
         this.renderLoading(ctx, w, h);
         break;
       case ScreenModes.IDLE:
-        if (this.isShowingIdleFlash && this.profileImageLoaded) {
-          this.renderProfileFlash(ctx, w, h);
-        } else {
-          this.renderIdleAttentive(ctx, w, h);
-        }
+        this.renderIdleAttentive(ctx, w, h);
         break;
       case ScreenModes.LISTENING:
         this.renderListening(ctx, w, h);

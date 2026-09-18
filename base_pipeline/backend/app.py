@@ -31,6 +31,7 @@ from pipecat.frames.frames import (
     InputAudioRawFrame,
     InputTextRawFrame,
     InterruptionFrame,
+    LLMContextFrame,
     LLMFullResponseStartFrame,
     LLMRunFrame,
     LLMSummarizeContextFrame,
@@ -97,6 +98,7 @@ import time
 import uuid
 from session_manager import session_manager
 import github_service
+from text_agent_service import handle_text_query
 
 
 
@@ -121,10 +123,17 @@ Your goal is to help visitors explore Pradeep's projects, skills, experience, ac
 
 GREETING & FIRST IMPRESSION
 
-When a session begins or a visitor greets you (e.g., "hi", "hello", "hey", or when starting), open with:
-"Vanakkam! I'm Pradeep's digital twin. Great to meet you — what would you like to explore?"
+When a session begins or a visitor greets you (e.g., "hi", "hello", "hey", or when starting), open with a funny, warm, and natural real-world greeting that blends everyday humor with AI concepts:
+"Hey! Think of me like ChatGPT, but running on extra coffee with zero monthly subscription. I'm Pradeep's AI digital twin—trained on his real projects and ready to chat! What are you curious about today?"
 
-Keep your opening warm, friendly, and brief. Never recite a canned list of topics or sound like a robot FAQ menu. Let the visitor lead the direction naturally.
+Other great natural examples you can vary with:  examplese these are
+* "Hey there! Pradeep spent weeks fine-tuning my brain so I wouldn't make things up like a broken GPS. I'm his AI digital twin—what cool project should we dive into?"
+* "Hey! If you think your phone's autocorrect is chaotic, wait till you hear an AI before coffee! Just kidding—I'm Pradeep's digital twin. What would you like to explore?"
+
+VOICE DELIVERY RULES:
+* Sound completely human, upbeat, and casual—NEVER robotic, stiff, or monotone.
+* Speak like a lively tech friend having a fun chat, not like an automated phone menu or technical manual.
+* Keep it punchy (under 30 words) and always end with an interactive question inviting the user to explore.
 
 LANGUAGE & CULTURAL ADAPTABILITY
 
@@ -1508,16 +1517,14 @@ async def send_text(message: TextMessage):
     text = (message.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
-    if current_task is None:
-        raise HTTPException(status_code=409, detail="No active audio session")
 
     if message.session_id:
         session_manager.reset_activity(message.session_id)
 
-    _pending_typed_texts.add(text)          # <-- mark as typed
-    print(f"[TEXT_INPUT] queued text={text!r}")
-    await current_task.queue_frames([InputTextRawFrame(text=text)])
-    return {"ok": True}
+    # Route text queries directly to Groq secondary text agent
+    print(f"[TEXT_INPUT] routing to Groq secondary text agent: {text!r}")
+    res = await handle_text_query(text, session_id=message.session_id, broadcast_func=broadcast_event)
+    return {"ok": True, "mode": "text", **res}
 
 
 
@@ -1593,7 +1600,16 @@ async def run_session(websocket: WebSocket, session_id: str):
     llm.register_function("show_certifications", show_certifications)
     llm.register_function("get_github_activity", get_github_activity)
 
-    context = LLMContext(messages=list(session_data.messages))
+    initial_messages = list(session_data.messages)
+    if not initial_messages:
+        # Seed initial greeting turn so Gemini Live triggers opening greeting immediately
+        initial_messages = [
+            {
+                "role": "user",
+                "content": "Hey! Give the visitor your funny, upbeat opening greeting: playfully compare yourself to ChatGPT running on extra coffee with zero subscription, introduce yourself as Pradeep's AI digital twin, and ask what they'd like to explore!",
+            }
+        ]
+    context = LLMContext(messages=initial_messages)
 
     # Out-of-band context summarizer: uses GoogleLLMService in the background to compact history
     # when tokens or message counts grow, preserving sub-second voice latency on Gemini Live.
@@ -1756,7 +1772,7 @@ async def run_session(websocket: WebSocket, session_id: str):
         print(f"[TRANSPORT] client_connected for session={session_id}")
         await send_transport_event(websocket, {"type": "status", "state": "idle", "session_id": session_id})
         session_manager.start_watchdog(session_id, timeout_seconds=60, on_timeout=on_inactivity_timeout)
-        await task.queue_frames([LLMRunFrame()])
+        await task.queue_frames([LLMContextFrame(context), LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_, __):

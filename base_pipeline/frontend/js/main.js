@@ -14,6 +14,12 @@ const sendBtn = document.getElementById('sendBtn');
 const talkBtn = document.getElementById('talkBtn');
 const talkBtnTextEl = document.getElementById('talkBtnText');
 const contactModalBtn = document.getElementById('contactModalBtn');
+const idleStreamEl = document.getElementById('idleReasoningStream');
+const thoughtReasoningWrapEl = document.getElementById('thoughtReasoningWrap');
+const reasoningTraceEl = document.getElementById('reasoningTrace');
+const reasoningCursorEl = document.getElementById('reasoningCursor');
+const thoughtIndexTagEl = document.getElementById('thoughtIndexTag');
+const promptSparksEl = document.getElementById('promptSparks');
 
 // ==========================================================================
 // STATE
@@ -53,11 +59,26 @@ function handleSessionPaused() {
   }
 }
 
+let hasRevealedIntro = false;
+function notifyGreetingStarted() {
+  if (hasRevealedIntro) return;
+  hasRevealedIntro = true;
+  console.log('[AUTOGREET] Inbound voice/speech stream active: dispatching session:ready_to_reveal...');
+  window.dispatchEvent(new CustomEvent('session:ready_to_reveal'));
+}
+
 const geminiClient = new GeminiClient({
   autoConnect: false,
   onOpen: () => {
     console.log('[WS] Connected to /audio');
     AvatarController.setAvatarState('idle');
+    const introStatusEl = document.getElementById('introStatusText');
+    if (introStatusEl) {
+      introStatusEl.textContent = "SYNCHRONIZING NEURAL VOICE TWIN...";
+    }
+    if (activeStatementEl && activeStatementEl.textContent.includes('Initializing')) {
+      activeStatementEl.textContent = "Neural Link established. Standing by...";
+    }
   },
   onMessage: (event) => {
     if (typeof event.data === 'string') {
@@ -70,6 +91,7 @@ const geminiClient = new GeminiClient({
 
     // Binary: 24kHz PCM audio frames from Gemini Live speech output
     mediaHandler.playAudio(event.data);
+    notifyGreetingStarted();
     AvatarController.setAvatarState('speaking');
     AvatarController.setSpeaking(true);
   },
@@ -89,6 +111,7 @@ const geminiClient = new GeminiClient({
   },
   onError: (e) => {
     console.error('[WS] Error:', e);
+    notifyGreetingStarted();
   }
 });
 
@@ -131,7 +154,7 @@ function init() {
 function pushToHistory(text) {
   if (!text || !convHistoryEl) return;
   const clean = text.trim();
-  if (!clean || clean === 'Thinking...' || clean === '...') return;
+  if (!clean || clean === 'Thinking...' || clean.startsWith('Synthesizing') || clean.startsWith('Initializing') || clean.startsWith('Neural Link') || clean.startsWith('Connecting') || clean === '...') return;
 
   const item = document.createElement('div');
   item.className = 'conv-history-item';
@@ -162,7 +185,23 @@ function setUserQueryBadge(text) {
   }
 }
 
+function dismissPromptSparks() {
+  if (!promptSparksEl) return;
+  promptSparksEl.classList.add('is-hidden');
+  setTimeout(() => {
+    if (promptSparksEl) {
+      promptSparksEl.style.display = 'none';
+    }
+  }, 380);
+}
+
 function handleNewUserTurn(userQuery, preserveGenUI = false) {
+  // Dismiss idle reasoning stream upon dialogue engagement
+  dismissIdleStream();
+
+  // Permanently dismiss prompt sparks on user dialogue
+  dismissPromptSparks();
+
   // Stop existing audio playback immediately
   mediaHandler.stopAudioPlayback();
 
@@ -177,7 +216,7 @@ function handleNewUserTurn(userQuery, preserveGenUI = false) {
   setUserQueryBadge(userQuery);
   currentStreamingChunk = '';
   if (activeStatementEl) {
-    activeStatementEl.textContent = 'Thinking...';
+    activeStatementEl.textContent = 'Synthesizing response...';
     activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
   }
   if (convActiveEl) {
@@ -193,6 +232,7 @@ function handleAssistantStreamChunk(aiText, isFinal = false) {
   currentStreamingChunk = (aiText || '').trim();
 
   if (currentStreamingChunk) {
+    notifyGreetingStarted();
     activeStatementEl.textContent = currentStreamingChunk;
 
     // Dynamic Font Scaling based on text volume
@@ -207,9 +247,12 @@ function handleAssistantStreamChunk(aiText, isFinal = false) {
       activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
     }
 
-    // Auto-scroll stream container to stay focused on active tokens
+    // Smart auto-scroll: only follow stream if user was already near the bottom (prevents scroll-fighting if user is reading previous text)
     if (convActiveEl && convActiveEl.scrollHeight > convActiveEl.clientHeight) {
-      convActiveEl.scrollTop = convActiveEl.scrollHeight;
+      const distanceFromBottom = convActiveEl.scrollHeight - convActiveEl.scrollTop - convActiveEl.clientHeight;
+      if (distanceFromBottom < 48) {
+        convActiveEl.scrollTop = convActiveEl.scrollHeight;
+      }
     }
 
     AvatarController.updateTranscript(currentStreamingChunk);
@@ -343,6 +386,7 @@ function handleServerPayload(payload) {
       currentStreamingChunk = '';
       AvatarController.setAvatarState('idle');
       AvatarController.setSpeaking(false);
+      resetInactivityWatchdog();
       break;
 
     case 'status': {
@@ -436,8 +480,10 @@ let lastGenUICall = null;
 function setGenUIOpen(isOpen) {
   if (isOpen) {
     document.body.classList.add('has-genui-open');
+    dismissIdleStream();
   } else {
     document.body.classList.remove('has-genui-open');
+    resetInactivityWatchdog();
   }
   AvatarController.setGenUIActive(isOpen);
 }
@@ -805,8 +851,7 @@ function renderGenUICertifications(certs, isSingleCert = false) {
   genuiContainerEl.appendChild(slate);
 }
 
-// --------------------------------------------------------------------------
-// 6. CONTACT INQUIRY SLATE
+// 6. CONTACT INQUIRY SLATE (Agentic Dispatch)
 // --------------------------------------------------------------------------
 function renderGenUIContactModal() {
   clearGenUI();
@@ -818,36 +863,110 @@ function renderGenUIContactModal() {
 
   slate.innerHTML = `
     <div class="slate-header">
-      <span class="slate-tag">INQUIRY // GET IN TOUCH</span>
+      <span class="slate-tag">DISPATCH // AGENTIC INQUIRY</span>
       <button class="slate-close-btn" type="button" aria-label="Close">ESC ×</button>
     </div>
     
-    <h3 class="slate-title">Connect with Pradeep</h3>
-    <p class="slate-lead">Direct communications for engineering collaboration, voice AI consulting, and opportunities.</p>
+    <h3 class="slate-title">Inquire with Pradeep</h3>
+    <p class="slate-lead">Dispatch your message directly via the voice agent pipeline, or connect across direct channels.</p>
 
-    <div class="slate-ledger">
+    <form class="slate-form" id="contactAgentForm" autocomplete="off">
+      <div class="slate-form-group">
+        <label class="slate-form-label" for="contactSenderEmail">YOUR EMAIL ADDRESS</label>
+        <input class="slate-input" id="contactSenderEmail" type="email" placeholder="name@company.com" required autocomplete="email" />
+      </div>
+      <div class="slate-form-group">
+        <label class="slate-form-label" for="contactSenderMsg">MESSAGE OR INQUIRY</label>
+        <textarea class="slate-textarea" id="contactSenderMsg" rows="2" placeholder="Hi Pradeep, I would like to discuss Voice AI / Agentic systems..." required></textarea>
+      </div>
+      <div class="slate-form-status" id="contactAgentStatus" role="status" aria-live="polite"></div>
+      <div class="slate-actions-row" style="margin-top: 4px;">
+        <button type="submit" class="slate-btn primary" id="contactDispatchBtn">Dispatch via Agent ↗</button>
+        <button type="button" class="slate-btn secondary" id="contactResumeBtn">Request Resume ↗</button>
+      </div>
+    </form>
+
+    <div class="slate-divider"></div>
+
+    <div class="slate-ledger" style="margin-top: 10px; margin-bottom: 8px;">
       <div class="ledger-row">
-        <span class="ledger-key">EMAIL</span>
-        <span class="ledger-val">selladuraipradeep@gmail.com</span>
+        <span class="ledger-key">DIRECT EMAIL</span>
+        <span class="ledger-val"><a href="mailto:selladuraipradeep@gmail.com" style="color: #111; text-decoration: underline;">selladuraipradeep@gmail.com</a></span>
       </div>
       <div class="ledger-row">
         <span class="ledger-key">LOCATION</span>
         <span class="ledger-val">India (Open to Global Remote)</span>
       </div>
       <div class="ledger-row">
-        <span class="ledger-key">SPECIALIZATION</span>
-        <span class="ledger-val">Voice AI · Agentic Systems</span>
+        <span class="ledger-key">CHANNELS</span>
+        <span class="ledger-val">
+          <a href="https://www.linkedin.com/in/pradeepselladurai/" target="_blank" rel="noopener noreferrer" style="color: #0369a1; text-decoration: none; margin-right: 8px;">LinkedIn ↗</a>
+          <a href="https://github.com/Cyberpradeep" target="_blank" rel="noopener noreferrer" style="color: #0369a1; text-decoration: none;">GitHub ↗</a>
+        </span>
       </div>
-    </div>
-
-    <div class="slate-actions-row">
-      <a href="mailto:selladuraipradeep@gmail.com" class="slate-btn primary">Send Email ↗</a>
-      <a href="https://www.linkedin.com/in/pradeepselladurai/" target="_blank" rel="noopener noreferrer" class="slate-btn secondary">LinkedIn ↗</a>
-      <a href="https://github.com/Cyberpradeep" target="_blank" rel="noopener noreferrer" class="slate-btn secondary">GitHub ↗</a>
     </div>
   `;
 
   slate.querySelector('.slate-close-btn').addEventListener('click', clearGenUI);
+
+  const contactForm = slate.querySelector('#contactAgentForm');
+  const emailInput = slate.querySelector('#contactSenderEmail');
+  const msgInput = slate.querySelector('#contactSenderMsg');
+  const statusEl = slate.querySelector('#contactAgentStatus');
+  const dispatchBtn = slate.querySelector('#contactDispatchBtn');
+  const resumeBtn = slate.querySelector('#contactResumeBtn');
+
+  function showStatus(text, type = 'info') {
+    statusEl.textContent = text;
+    statusEl.className = 'slate-form-status is-visible' + (type === 'error' ? ' is-error' : (type === 'success' ? ' is-success' : ''));
+  }
+
+  contactForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = (emailInput.value || '').trim();
+    const msg = (msgInput.value || '').trim();
+
+    if (!email || !msg) {
+      showStatus('Please provide both your email address and message.', 'error');
+      return;
+    }
+
+    showStatus('Transmitting inquiry to voice agent pipeline...', 'info');
+    dispatchBtn.disabled = true;
+    dispatchBtn.style.opacity = '0.6';
+
+    const agentPrompt = `Please send a contact email to Pradeep. My email is ${email} and my inquiry is: "${msg}"`;
+    sendUserQuery(agentPrompt, true);
+
+    setTimeout(() => {
+      showStatus('Inquiry dispatched. The voice agent is processing your transmission.', 'success');
+      dispatchBtn.disabled = false;
+      dispatchBtn.style.opacity = '1';
+    }, 1500);
+  });
+
+  resumeBtn.addEventListener('click', () => {
+    const email = (emailInput.value || '').trim();
+    if (!email) {
+      showStatus('Please enter your email address above to receive Pradeep\'s resume.', 'error');
+      emailInput.focus();
+      return;
+    }
+
+    showStatus('Requesting resume transmission via agent...', 'info');
+    resumeBtn.disabled = true;
+    resumeBtn.style.opacity = '0.6';
+
+    const resumePrompt = `Please send Pradeep's resume to my email: ${email}`;
+    sendUserQuery(resumePrompt, true);
+
+    setTimeout(() => {
+      showStatus(`Resume dispatch requested for ${email}.`, 'success');
+      resumeBtn.disabled = false;
+      resumeBtn.style.opacity = '1';
+    }, 1500);
+  });
+
   genuiContainerEl.appendChild(slate);
 }
 
@@ -945,6 +1064,185 @@ function renderGenUIGitHubActivity(payload) {
 
   genuiContainerEl.appendChild(slate);
 }
+// ==========================================================================
+// EMBEDDED BACKGROUND THOUGHT STREAM — Architectural Wall Inscription
+// ==========================================================================
+const REASONING_SEQUENCES = [
+  {
+    tag: '[01 // CONTEXT ARCHITECTURE]',
+    question: 'How do you stop context window explosion and token runaway during 15-minute voice sessions?',
+    traceSteps: [
+      '> profiling token velocity: 45 turns/session ≈ 72k tokens',
+      ' → sliding-window compression summarizes turns older than T-6 into 180-token structured state digest',
+      ' → tool definitions & system invariants pinned',
+      ' → token footprint capped indefinitely at 4.2k tokens'
+    ]
+  },
+  {
+    tag: '[02 // AGENTIC DETERMINISM]',
+    question: 'Why eliminate raw ReAct loops in multi-turn production agents?',
+    traceSteps: [
+      '> ReAct loops suffer 11.4% hallucinated termination failure',
+      ' → agent retries idempotency violations in cyclic spirals',
+      ' → replaced with hierarchical state machines: LLM handles node classification',
+      ' → deterministic graph engine dictates valid transitions',
+      ' → zero stuck-loop exceptions'
+    ]
+  },
+  {
+    tag: '[03 // REAL-TIME AUDIO PIPELINE]',
+    question: 'How did you engineer sub-800ms speech turnaround over raw WebSockets in Voice AI?',
+    traceSteps: [
+      '> eliminated HTTP chunking latency',
+      ' → bidirectional 16kHz PCM streaming over raw WebSockets',
+      ' → client-side energy VAD with 350ms silence threshold triggers early speculative audio cutoff',
+      ' → end-to-end turnaround dropped from 1450ms to 620ms'
+    ]
+  },
+  {
+    tag: '[04 // MCP TOOL ORCHESTRATION]',
+    question: 'How does PizzaBot coordinate MCP tools across 20 timezones without hallucinating store hours?',
+    traceSteps: [
+      '> LLM arithmetic on UTC offsets produces 23% time hallucinations',
+      ' → delegated to deterministic MCP tools',
+      ' → agent extracts ISO-8601 intent',
+      ' → tool queries local store schedule registry with tz-aware validation',
+      ' → zero false opening hour commitments'
+    ]
+  }
+];
+
+let idleStreamTimer = null;
+let idleStreamActive = false;
+let idleTypingTimer = null;
+let currentSequenceIdx = 0;
+let idleInactivityTimer = null;
+const IDLE_INACTIVITY_DELAY_MS = 22000; // 22 seconds of silence / idle time
+
+function resetInactivityWatchdog() {
+  if (idleInactivityTimer) {
+    clearTimeout(idleInactivityTimer);
+    idleInactivityTimer = null;
+  }
+
+  // Dismiss currently active thought stream if user is active
+  if (idleStreamActive) {
+    dismissIdleStream();
+  }
+
+  // If voice session is active, do not schedule idle stream
+  if (isVoiceActive) return;
+
+  // Schedule awakening after 22 seconds of pure inactivity
+  idleInactivityTimer = setTimeout(() => {
+    if (!isVoiceActive && !document.hidden) {
+      startIdleReasoningStream();
+    }
+  }, IDLE_INACTIVITY_DELAY_MS);
+}
+
+function startIdleReasoningStream() {
+  if (!idleStreamEl || !reasoningTraceEl || !thoughtReasoningWrapEl) return;
+  if (idleStreamActive || isVoiceActive || document.body.classList.contains('has-genui-open')) return;
+
+  idleStreamActive = true;
+  runReasoningCycle();
+}
+
+function runReasoningCycle() {
+  if (!idleStreamActive || isVoiceActive) return;
+
+  const seq = REASONING_SEQUENCES[currentSequenceIdx];
+  currentSequenceIdx = (currentSequenceIdx + 1) % REASONING_SEQUENCES.length;
+
+  // Reset visual states
+  if (thoughtIndexTagEl) thoughtIndexTagEl.textContent = seq.tag;
+  if (thoughtReasoningWrapEl) thoughtReasoningWrapEl.classList.remove('is-hidden');
+  if (reasoningTraceEl) reasoningTraceEl.textContent = '';
+  if (reasoningCursorEl) reasoningCursorEl.classList.remove('is-hidden');
+
+  // Reveal the thought container directly on the background wall
+  idleStreamEl.classList.remove('is-dismissed');
+  idleStreamEl.classList.add('is-active');
+
+  // Step 1: Initial quiet pause (500ms) with blinking cursor before telemetry streams
+  idleStreamTimer = setTimeout(() => {
+    if (!idleStreamActive || isVoiceActive) return;
+
+    // Step 2: Stream reasoning telemetry trace step-by-step with real-time thinking pauses
+    streamReasoningSteps(reasoningTraceEl, seq.traceSteps, 0, () => {
+      if (!idleStreamActive || isVoiceActive) return;
+
+      // Finished streaming all steps: hide cursor
+      if (reasoningCursorEl) reasoningCursorEl.classList.add('is-hidden');
+
+      // Step 3: Hold contemplation for 9.5 seconds so user can comfortably read
+      idleStreamTimer = setTimeout(() => {
+        if (!idleStreamActive || isVoiceActive) return;
+
+        // Fade out
+        idleStreamEl.classList.remove('is-active');
+
+        // Step 4: Calm resting gap (4.5s) before the next thought emerges
+        idleStreamTimer = setTimeout(() => {
+          if (!idleStreamActive || isVoiceActive) return;
+          runReasoningCycle();
+        }, 4500);
+      }, 9500);
+    });
+  }, 500);
+}
+
+function typeString(targetEl, text, speedMs, onComplete) {
+  let i = 0;
+  function step() {
+    if (!idleStreamActive) return;
+    if (i < text.length) {
+      targetEl.textContent += text[i];
+      i++;
+      idleTypingTimer = setTimeout(step, speedMs);
+    } else {
+      if (onComplete) onComplete();
+    }
+  }
+  step();
+}
+
+function streamReasoningSteps(targetEl, steps, stepIdx, onComplete) {
+  if (!idleStreamActive) return;
+  if (!steps || stepIdx >= steps.length) {
+    if (onComplete) onComplete();
+    return;
+  }
+
+  const stepText = steps[stepIdx];
+  // Stream this clause character-by-character at a deliberate speed (34ms per character)
+  typeString(targetEl, stepText, 34, () => {
+    if (!idleStreamActive) return;
+
+    if (stepIdx < steps.length - 1) {
+      // Thinking pause between deductions: stop typing, cursor blinks in place for 850ms
+      idleTypingTimer = setTimeout(() => {
+        if (!idleStreamActive) return;
+        streamReasoningSteps(targetEl, steps, stepIdx + 1, onComplete);
+      }, 850);
+    } else {
+      if (onComplete) onComplete();
+    }
+  });
+}
+
+function dismissIdleStream() {
+  idleStreamActive = false;
+  if (idleStreamTimer) { clearTimeout(idleStreamTimer); idleStreamTimer = null; }
+  if (idleTypingTimer) { clearTimeout(idleTypingTimer); idleTypingTimer = null; }
+  if (idleStreamEl) {
+    idleStreamEl.classList.add('is-dismissed');
+    idleStreamEl.classList.remove('is-active');
+  }
+}
+
+
 
 // ==========================================================================
 // QUERY DISPATCHER
@@ -953,33 +1251,40 @@ function sendUserQuery(text, preserveGenUI = false) {
   const query = (text || '').trim();
   if (!query) return;
 
-  mediaHandler.initializeAudio(); // Ensure AudioContext is active
   handleNewUserTurn(query, preserveGenUI);
 
-  // If WebSocket is disconnected, trigger connection immediately
-  if (!geminiClient.isConnected()) {
+  // If voice is already engaged and websocket is disconnected, keep voice active
+  if (isVoiceActive && !geminiClient.isConnected()) {
     geminiClient.connect();
   }
 
-  // Send typed query with automatic retry while session initializes
+  // Send typed query to backend (routes to Gemini Live voice if active, or Groq text agent if idle)
   async function postQuery(attempt = 1) {
     try {
       const res = await fetch('/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: query })
+        body: JSON.stringify({
+          text: query,
+          session_id: geminiClient.sessionId
+        })
       });
       if (res.status === 409 && attempt < 3) {
-        console.warn(`[TEXT] Audio session initializing, retrying in 1s (attempt ${attempt}/3)...`);
-        geminiClient.connect();
+        console.warn(`[TEXT] Retrying in 1s (attempt ${attempt}/3)...`);
         setTimeout(() => postQuery(attempt + 1), 1000);
-      } else if (!res.ok) {
+      } else if (res.ok) {
+        const data = await res.json();
+        // Fallback in case SSE channel is disconnected or lagged
+        if (data && data.response && activeStatementEl && activeStatementEl.textContent === 'Synthesizing response...') {
+          handleAssistantStreamChunk(data.response, true);
+          AvatarController.setAvatarState('idle');
+        }
+      } else {
         console.error('[TEXT] Error sending query:', res.status, res.statusText);
       }
     } catch (err) {
       console.error('[TEXT] Network error sending query:', err);
       if (attempt < 3) {
-        geminiClient.connect();
         setTimeout(() => postQuery(attempt + 1), 1200);
       }
     }
@@ -1021,12 +1326,34 @@ function updateVoiceButtonUI(isPaused = false) {
 // EVENT LISTENERS
 // ==========================================================================
 function setupEventListeners() {
+  // --- Session Ignition: Unlocking audio and initiating auto-greet ---
+  window.addEventListener('session:unlock_audio', () => {
+    console.log('[AUTOGREET] AudioContext unlocked via user gesture');
+    mediaHandler.initializeAudio();
+  });
+
+  window.addEventListener('session:start_greet', () => {
+    console.log('[AUTOGREET] Connecting to Gemini Live session for auto-greeting...');
+    mediaHandler.initializeAudio();
+
+    if (!geminiClient.isConnected()) {
+      geminiClient.connect();
+    }
+
+    AvatarController.setAvatarState('listening');
+    if (activeStatementEl) {
+      activeStatementEl.textContent = "Initializing Neural Voice Twin...";
+      activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
+    }
+  });
+
   // --- Voice-to-Voice Toggle ---
   if (talkBtn) {
     talkBtn.addEventListener('click', async () => {
       mediaHandler.initializeAudio(); // Unlock audio on user interaction
       if (!isVoiceActive) {
         // Engaging voice session
+        dismissPromptSparks();
         isVoiceActive = true;
         updateVoiceButtonUI();
         if (!geminiClient.isConnected()) {
@@ -1044,18 +1371,20 @@ function setupEventListeners() {
           isVoiceActive = false;
           updateVoiceButtonUI();
           AvatarController.setAvatarState('idle');
+          resetInactivityWatchdog();
           if (activeStatementEl) {
             activeStatementEl.textContent = 'Microphone access was denied or not supported. You can still type your questions in the box below!';
           }
         }
       } else {
-        // Disengaging voice session
+        // Disengaging voice session (user paused or stopped)
         isVoiceActive = false;
         mediaHandler.stopAudio();
         mediaHandler.stopAudioPlayback();
         geminiClient.disconnect();
         AvatarController.setAvatarState('idle');
         updateVoiceButtonUI();
+        resetInactivityWatchdog();
       }
     });
   }
@@ -1082,6 +1411,21 @@ function setupEventListeners() {
     });
   }
 
+  // --- Inactivity Watchdog: Start 22s countdown only after 3D stage is ready ---
+  window.addEventListener('stage:ready', () => {
+    resetInactivityWatchdog();
+  });
+
+  // Fallback if avatar was already initialized & dismissed
+  const loadingOverlayEl = document.getElementById('loadingOverlay');
+  if (loadingOverlayEl && loadingOverlayEl.classList.contains('is-hidden')) {
+    resetInactivityWatchdog();
+  }
+
+  // --- Global User Activity Watchdog (any click/key/tap resets idle timer) ---
+  window.addEventListener('pointerdown', resetInactivityWatchdog, { passive: true });
+  window.addEventListener('keydown', resetInactivityWatchdog, { passive: true });
+  window.addEventListener('touchstart', resetInactivityWatchdog, { passive: true });
 
 
   // --- Interactive Click-to-Query on Skill Chips & Specimen Rows ---
@@ -1105,7 +1449,31 @@ function setupEventListeners() {
     });
   }
 
+  // --- Minimalist Prompt Sparks (Agentic Conversational Starters) ---
+  if (promptSparksEl) {
+    promptSparksEl.addEventListener('click', (e) => {
+      const sparkChip = e.target.closest('.spark-chip');
+      if (sparkChip) {
+        const query = sparkChip.getAttribute('data-query') || sparkChip.textContent.trim();
+        dismissPromptSparks();
+        sendUserQuery(query);
+      }
+    });
+  }
 
+
+
+
+  // --- Mobile Virtual Keyboard Viewport Height Tracker ---
+  if (window.visualViewport) {
+    const handleVisualViewportResize = () => {
+      const vh = window.visualViewport.height;
+      document.documentElement.style.setProperty('--viewport-height', `${vh}px`);
+    };
+    window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+    window.visualViewport.addEventListener('scroll', handleVisualViewportResize);
+    handleVisualViewportResize();
+  }
 
   // --- Click Outside to Dismiss GenUI Slate ---
   document.addEventListener('pointerdown', (e) => {
