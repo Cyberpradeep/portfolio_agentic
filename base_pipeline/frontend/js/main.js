@@ -13,6 +13,9 @@ const textInputEl = document.getElementById('textInput');
 const sendBtn = document.getElementById('sendBtn');
 const talkBtn = document.getElementById('talkBtn');
 const talkBtnTextEl = document.getElementById('talkBtnText');
+const unifiedDockEl = document.getElementById('unifiedDock');
+const switchToTextBtn = document.getElementById('switchToTextBtn');
+const switchToVoiceBtn = document.getElementById('switchToVoiceBtn');
 const contactModalBtn = document.getElementById('contactModalBtn');
 const idleStreamEl = document.getElementById('idleReasoningStream');
 const thoughtReasoningWrapEl = document.getElementById('thoughtReasoningWrap');
@@ -52,10 +55,25 @@ function handleSessionPaused() {
   AvatarController.setAvatarState('idle');
   AvatarController.setSpeaking(false);
   updateVoiceButtonUI(true);
-  if (activeStatementEl && !activeStatementEl.textContent.includes('Re-engage')) {
+  setDockMode('voice');
+  if (activeStatementEl && !activeStatementEl.textContent.includes('Resume')) {
     pushToHistory(activeStatementEl.textContent);
-    activeStatementEl.textContent = 'Voice dialogue is standing by. Click "Re-engage Voice" or choose a prompt to continue.';
+    activeStatementEl.textContent = 'Voice dialogue is paused. Click "Resume Voice" or choose a prompt to continue.';
     activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
+  }
+}
+
+function setDockMode(mode) {
+  if (!unifiedDockEl) return;
+  if (mode === 'text') {
+    unifiedDockEl.classList.remove('is-voice-mode');
+    unifiedDockEl.classList.add('is-text-mode');
+    if (textInputEl) {
+      setTimeout(() => textInputEl.focus(), 120);
+    }
+  } else {
+    unifiedDockEl.classList.remove('is-text-mode');
+    unifiedDockEl.classList.add('is-voice-mode');
   }
 }
 
@@ -1313,12 +1331,12 @@ function updateVoiceButtonUI(isPaused = false) {
     if (isPaused || hasEverEngaged) {
       talkBtn.classList.add('is-standby');
       if (talkBtnTextEl) {
-        talkBtnTextEl.textContent = 'Re-engage Voice';
+        talkBtnTextEl.textContent = 'Resume Voice';
       }
     } else {
       talkBtn.classList.remove('is-standby');
       if (talkBtnTextEl) {
-        talkBtnTextEl.textContent = 'Engage Voice Twin';
+        talkBtnTextEl.textContent = 'Talk with Twin';
       }
     }
   }
@@ -1334,9 +1352,14 @@ function setupEventListeners() {
     mediaHandler.initializeAudio();
   });
 
-  window.addEventListener('session:start_greet', () => {
+  window.addEventListener('session:start_greet', async () => {
     console.log('[AUTOGREET] Connecting to Gemini Live session for auto-greeting...');
     mediaHandler.initializeAudio();
+
+    // Voice-first: activate voice session and set button to ON immediately
+    isVoiceActive = true;
+    updateVoiceButtonUI();
+    setDockMode('voice');
 
     if (!geminiClient.isConnected()) {
       geminiClient.connect();
@@ -1347,12 +1370,68 @@ function setupEventListeners() {
       activeStatementEl.textContent = "Initializing Neural Voice Twin...";
       activeStatementEl.classList.remove('is-medium-text', 'is-long-text');
     }
+
+    try {
+      await mediaHandler.startAudio((pcm16Data) => {
+        if (geminiClient.isConnected()) {
+          geminiClient.sendAudio(pcm16Data);
+        }
+      });
+    } catch (err) {
+      console.warn('[MIC] Auto-start mic waiting for user permission:', err);
+    }
   });
+
+  // --- Mode Switching (Voice ⇄ Text) ---
+  if (switchToTextBtn) {
+    switchToTextBtn.addEventListener('click', () => {
+      // Pause voice Gemini session cleanly when switching to text
+      if (isVoiceActive || (geminiClient && geminiClient.isConnected())) {
+        isVoiceActive = false;
+        mediaHandler.stopAudio();
+        mediaHandler.stopAudioPlayback();
+        geminiClient.disconnect();
+        AvatarController.setAvatarState('idle');
+        AvatarController.setSpeaking(false);
+        updateVoiceButtonUI(true); // Flag as paused -> button shows "Resume Voice" in warm amber
+      }
+      setDockMode('text');
+    });
+  }
+
+  if (switchToVoiceBtn) {
+    switchToVoiceBtn.addEventListener('click', async () => {
+      setDockMode('voice');
+      // Resume voice dialogue cleanly
+      if (!isVoiceActive) {
+        dismissPromptSparks();
+        isVoiceActive = true;
+        updateVoiceButtonUI();
+        if (!geminiClient.isConnected()) {
+          geminiClient.connect();
+        }
+        AvatarController.setAvatarState('listening');
+        try {
+          await mediaHandler.startAudio((pcm16Data) => {
+            if (geminiClient.isConnected()) {
+              geminiClient.sendAudio(pcm16Data);
+            }
+          });
+        } catch (err) {
+          console.error('[MIC] Failed to resume audio on switch to voice:', err);
+          isVoiceActive = false;
+          updateVoiceButtonUI();
+          AvatarController.setAvatarState('idle');
+        }
+      }
+    });
+  }
 
   // --- Voice-to-Voice Toggle ---
   if (talkBtn) {
     talkBtn.addEventListener('click', async () => {
       mediaHandler.initializeAudio(); // Unlock audio on user interaction
+      setDockMode('voice');
       if (!isVoiceActive) {
         // Engaging voice session
         dismissPromptSparks();
@@ -1391,17 +1470,34 @@ function setupEventListeners() {
     });
   }
 
-  // --- Text Input ---
+  // --- Text Input (Polished UX) ---
   if (sendBtn && textInputEl) {
+    const syncSendBtnState = () => {
+      const hasText = textInputEl.value.trim().length > 0;
+      sendBtn.disabled = !hasText;
+      sendBtn.classList.toggle('is-disabled', !hasText);
+      sendBtn.classList.toggle('is-ready', hasText);
+    };
+
+    textInputEl.addEventListener('input', syncSendBtnState);
+    syncSendBtnState();
+
     sendBtn.addEventListener('click', () => {
-      sendUserQuery(textInputEl.value);
+      const query = textInputEl.value.trim();
+      if (!query) return;
+      sendUserQuery(query);
       textInputEl.value = '';
+      syncSendBtnState();
     });
 
     textInputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        sendUserQuery(textInputEl.value);
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const query = textInputEl.value.trim();
+        if (!query) return;
+        sendUserQuery(query);
         textInputEl.value = '';
+        syncSendBtnState();
       }
     });
   }

@@ -86,7 +86,12 @@ class GeminiClient {
             };
 
             this.websocket.onclose = (event) => {
-                const wasPaused = this.isSessionPaused;
+                const isStandbyClose = event.code === 1000 || (event.reason && event.reason.toLowerCase().includes('standby'));
+                if (isStandbyClose) {
+                    this.isSessionPaused = true;
+                    this.isExplicitClose = true;
+                }
+                const wasPaused = this.isSessionPaused || isStandbyClose;
                 const wasExplicit = this.isExplicitClose;
                 this.websocket = null;
 
@@ -94,8 +99,8 @@ class GeminiClient {
                     this.onClose(event, { wasPaused });
                 }
 
-                // If closed due to intentional pause or explicit user stop, do not auto-reconnect
-                if (!wasExplicit && !wasPaused && this.autoReconnect) {
+                // If closed due to intentional pause, standby code 1000, or explicit user stop, do not auto-reconnect
+                if (!wasExplicit && !wasPaused && !isStandbyClose && this.autoReconnect) {
                     this.scheduleReconnect();
                 }
             };

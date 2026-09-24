@@ -163,6 +163,8 @@ async def run_voice_session(websocket: WebSocket, session_id: str):
         ),
     )
 
+    is_initial = len(session_data.messages) == 0
+
     llm = GeminiLiveLLMService(
         api_key=GEMINI_API_KEY,
         settings=GeminiLiveLLMService.Settings(
@@ -174,7 +176,7 @@ async def run_voice_session(websocket: WebSocket, session_id: str):
         ),
         system_instruction=VOICE_SYSTEM_INSTRUCTION,
         tools=GEMINI_VOICE_TOOLS,
-        inference_on_context_initialization=True,
+        inference_on_context_initialization=is_initial,
         http_options={"api_version": "v1beta"},
     )
 
@@ -182,14 +184,15 @@ async def run_voice_session(websocket: WebSocket, session_id: str):
     register_voice_tools(llm, session_id)
 
     # Pre-seed initial messages from unified session history
-    initial_messages = list(session_data.messages)
-    if not initial_messages:
+    if is_initial:
         initial_messages = [
             {
                 "role": "user",
                 "content": "Hey! Give the visitor your funny, upbeat opening greeting: playfully compare yourself to ChatGPT running on extra coffee with zero subscription, introduce yourself as Pradeep's AI digital twin, and ask what they'd like to explore!",
             }
         ]
+    else:
+        initial_messages = list(session_data.messages)
     context = LLMContext(messages=initial_messages)
 
     summarizer_llm = GoogleLLMService(
@@ -247,6 +250,7 @@ async def run_voice_session(websocket: WebSocket, session_id: str):
                 session_id,
                 {"type": "session_paused", "session_id": session_id, "reason": "inactivity"}
             )
+            await asyncio.sleep(0.08)
             await task.cancel()
             await websocket.close(code=1000, reason="Inactivity standby")
         except Exception as exc:
@@ -316,13 +320,17 @@ async def run_voice_session(websocket: WebSocket, session_id: str):
     async def on_client_connected(_, __):
         await connection_registry.broadcast_to_session(session_id, {"type": "status", "state": "idle", "session_id": session_id})
         session_manager.start_watchdog(session_id, timeout_seconds=INACTIVITY_TIMEOUT_SECONDS, on_timeout=on_inactivity_timeout)
-        await task.queue_frames([LLMContextFrame(context), LLMRunFrame()])
+        await task.queue_frames([LLMContextFrame(context)])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(_, __):
         session_manager.cancel_watchdog(session_id)
         session_data.is_active = False
         await connection_registry.broadcast_to_session(session_id, {"type": "status", "state": "disconnected", "session_id": session_id})
+        try:
+            await task.cancel()
+        except Exception:
+            pass
 
     runner = PipelineRunner(handle_sigint=False)
     try:
