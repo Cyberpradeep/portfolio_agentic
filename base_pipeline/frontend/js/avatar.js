@@ -5,7 +5,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=58';
 import { animationController } from './animationController.js?v=5';
-import { mechanicalController } from './mechanicalController.js';
+import { mechanicalController } from './mechanicalController.js?v=6';
 import { soundFX } from './soundFx.js';
 
 let scene, camera, renderer, controls;
@@ -486,6 +486,13 @@ function loadTitanModel() {
         // Apply dynamic TV screen canvas
         tvScreenManager.applyToModel(modelRoot);
 
+        // Hide chest 9-speaker driver box
+        modelRoot.traverse((child) => {
+          if (child.name && (child.name.includes('doof_speaker') || child.name.includes('doof_speakerside'))) {
+            child.visible = false;
+          }
+        });
+
         // Normalize scale and center
         const bbox = new THREE.Box3().setFromObject(modelRoot);
         const size = bbox.getSize(new THREE.Vector3());
@@ -746,6 +753,15 @@ export const AvatarController = {
 
   toggleAudio() {
     return soundFX.toggleMute();
+  },
+
+  setChestSpeakerVisible(visible) {
+    if (!modelRoot) return;
+    modelRoot.traverse((child) => {
+      if (child.name && (child.name.includes('doof_speaker') || child.name.includes('doof_speakerside'))) {
+        child.visible = !!visible;
+      }
+    });
   }
 };
 

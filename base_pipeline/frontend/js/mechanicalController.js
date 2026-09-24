@@ -191,6 +191,7 @@ export class MechanicalController {
       const pulseMagnitude = this.voiceIntensitySmoothed * (0.65 + acousticOsc * 0.35);
 
       this.subwooferDrivers.forEach(item => {
+        if (!item.mesh || item.mesh.visible === false) return;
         // Tightly reduced pumping radius for chest speaker (subtle, tight, non-distended)
         const xyExpansion = 1.0 + (pulseMagnitude * (item.isChest ? 0.022 : 0.038));
         const zExcursion = 1.0 + (pulseMagnitude * (item.isChest ? 0.045 : 0.075));
@@ -210,6 +211,7 @@ export class MechanicalController {
       // Return smoothly to resting static scale when NOT speaking (zero idle vibration)
       if (this.subwooferDrivers.length > 0) {
         this.subwooferDrivers.forEach(item => {
+          if (!item.mesh || item.mesh.visible === false) return;
           item.mesh.scale.lerp(item.initialScale, deltaTime * 14);
         });
       }
