@@ -122,7 +122,9 @@ let eventSource = null;
 function setupEventSource() {
   if (eventSource) return;
   try {
-    eventSource = new EventSource('/events');
+    const sid = (geminiClient && geminiClient.sessionId) || sessionStorage.getItem('portfolio_session_id') || '';
+    const sseUrl = sid ? `/events?session_id=${encodeURIComponent(sid)}` : '/events';
+    eventSource = new EventSource(sseUrl);
     eventSource.onmessage = (e) => {
       try {
         const payload = JSON.parse(e.data);

@@ -14,7 +14,11 @@ class MediaHandler {
     async initializeAudio() {
         if (!this.audioContext) {
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioCtx({ sampleRate: 48000 });
+            try {
+                this.audioContext = new AudioCtx({ sampleRate: 48000 });
+            } catch (_) {
+                this.audioContext = new AudioCtx();
+            }
             
             try {
                 await this.audioContext.audioWorklet.addModule("/static/js/pcm-processor.js");
