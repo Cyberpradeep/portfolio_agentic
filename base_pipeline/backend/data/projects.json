@@ -109,6 +109,14 @@
                 "Voice AI",
                 "Function Calling",
                 "Agentic AI"
+            ],
+            "aliases": [
+                "hospital voice ai assistant",
+                "hospital voice ai",
+                "hospital assistant",
+                "hospital appointment",
+                "appointment booking",
+                "conversational ai for appointment booking"
             ]
         },
         {
@@ -183,6 +191,13 @@
                 "Avatar Integration",
                 "AI Personality Design",
                 "Conversation Memory and Context Handling"
+            ],
+            "aliases": [
+                "english tutor companion",
+                "english tutor",
+                "ai english tutor",
+                "ai english tutor conversational ai",
+                "english companion"
             ]
         },
         {
@@ -238,6 +253,13 @@
                 "Multi-Model Architectures",
                 "Database-Backed Memory",
                 "Search-Augmented AI"
+            ],
+            "github_url": "https://github.com/Cyberpradeep/GenAI_Coaach_ChatBot.git",
+            "aliases": [
+                "genai coach",
+                "genai chatbot",
+                "genai coach chatbot",
+                "gen ai coach"
             ]
         },
         {
@@ -246,7 +268,7 @@
             "type": "Personal Project",
             "status": "Completed",
             "summary": "An LLM-powered code review assistant capable of reviewing uploaded or pasted source code.",
-            "github_url": "https://github.com/Cyberpradeep/GenAI_Coaach_ChatBot.git",
+            "github_url": null,
             "technologies": [
                 "Gemini",
                 "Python"
@@ -255,6 +277,11 @@
                 "Code Analysis",
                 "Code Review",
                 "Improvement Suggestions"
+            ],
+            "aliases": [
+                "ai code reviewer",
+                "code reviewer",
+                "code review assistant"
             ]
         },
         {
@@ -286,6 +313,11 @@
                 "Role-Based Dashboards",
                 "Owner Analytics",
                 "Order Management"
+            ],
+            "aliases": [
+                "canteen preorder app",
+                "canteen app",
+                "canteen preorder"
             ]
         },
         {
@@ -312,6 +344,13 @@
                 "Machine Learning Fundamentals",
                 "Model Deployment",
                 "Data Preprocessing"
+            ],
+            "aliases": [
+                "email spam detector",
+                "email spam detection",
+                "email spam checker",
+                "spam detection system",
+                "email spam"
             ]
         },
         {

@@ -172,10 +172,10 @@ async def execute_text_tool(name: str, args: dict, session_id: str) -> Dict[str,
     """
     Executes a requested tool function and broadcasts GenUI updates to session_id.
     """
-    if name == "get_about":
+    if name in ("get_about", "show_about"):
         return data_service.get_about_data()
 
-    elif name == "show_projects":
+    elif name in ("show_projects", "get_projects"):
         data = data_service.get_projects_data()
         cards = []
         for proj in data.get("projects", []):
@@ -206,7 +206,7 @@ async def execute_text_tool(name: str, args: dict, session_id: str) -> Dict[str,
             "projects": [p["name"] for p in cards]
         }
 
-    elif name == "get_project_details":
+    elif name in ("get_project_details", "get_project"):
         proj_name = args.get("project_name", "")
         matched = data_service.find_project(proj_name)
 
@@ -268,7 +268,7 @@ async def execute_text_tool(name: str, args: dict, session_id: str) -> Dict[str,
             "differentiators": ["Voice AI", "Agentic AI", "Sub-800ms latency", "Deterministic FSMs", "Generative UI"]
         }
 
-    elif name == "show_skills":
+    elif name in ("show_skills", "get_skills"):
         skills_arg = args.get("skills", [])
         quadrants = [
             {"title": "Languages & Backend", "items": ["Python", "FastAPI", "Flask", "Java", "WebSockets", "MySQL", "MongoDB"]},
@@ -283,7 +283,7 @@ async def execute_text_tool(name: str, args: dict, session_id: str) -> Dict[str,
         })
         return {"success": True, "categories": [q["title"] for q in quadrants]}
 
-    elif name == "show_experience":
+    elif name in ("show_experience", "get_experience"):
         data = data_service.get_experience_data()
         await connection_registry.broadcast_to_session(session_id, {
             "type": "show_experience",
@@ -291,7 +291,7 @@ async def execute_text_tool(name: str, args: dict, session_id: str) -> Dict[str,
         })
         return {"success": True, "experience": data}
 
-    elif name == "show_certifications":
+    elif name in ("show_certifications", "get_certifications"):
         cert_query = args.get("certification_name", "")
         data = data_service.get_certifications_data()
         matched = data_service.resolve_certification(cert_query) if cert_query else None
@@ -323,10 +323,10 @@ async def execute_text_tool(name: str, args: dict, session_id: str) -> Dict[str,
         await connection_registry.broadcast_to_session(session_id, payload)
         return {"matched": False, "count": len(completed), "certifications": [c["name"] for c in completed]}
 
-    elif name == "get_achievements":
+    elif name in ("get_achievements", "show_achievements"):
         return data_service.get_achievements_data()
 
-    elif name == "search_faq":
+    elif name in ("search_faq", "search_faqs"):
         query = args.get("query", "")
         results = data_service.search_faqs(query)
         return {"count": len(results), "faqs": results}

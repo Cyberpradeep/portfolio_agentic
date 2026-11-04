@@ -102,20 +102,50 @@ export class TVScreenManager {
     this.carouselInterval = 3.8;
     this.onCarouselChange = null;
 
-    // Preloaded Creator Profile Image (for occasional idle easter egg flash)
-    this.profileImage = new Image();
-    this.profileImage.crossOrigin = 'anonymous';
-    this.profileImageLoaded = false;
-    this.profileImage.onload = () => {
-      this.profileImageLoaded = true;
-    };
-    this.profileImage.src = '/static/assests/profile_image-sketch.jpg';
+    // Preloaded Easter Egg Flash Image (Creator Photo)
+    this.idleFlashList = [
+      {
+        id: 'creator',
+        src: '/static/assests/profile_image-sketch.jpg',
+        title: 'IDENTITY // PRADEEP SELLADURAI',
+        subtitle: '● NEURAL ARCHETYPE // SYNCHRONIZED',
+        color: '#38bdf8',
+        shadowColor: 'rgba(56, 189, 248, 0.55)',
+        statusColor: '#10b981',
+        beamColor: 'rgba(56, 189, 248, 0.14)',
+        img: null,
+        loaded: false
+      }
+    ];
 
-    // Idle Easter Egg Flash State (creator biometric projection)
+    this.currentFlashIndex = 0;
+    this.activeFlashItem = this.idleFlashList[0];
+    this.profileImage = null;
+    this.profileImageLoaded = false;
+
+    // Preload each flash image
+    this.idleFlashList.forEach((item, idx) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        item.loaded = true;
+        if (idx === 0) {
+          this.profileImage = img;
+          this.profileImageLoaded = true;
+        }
+      };
+      img.src = item.src;
+      item.img = img;
+    });
+
+    // Idle Easter Egg Flash State (periodically cycles images then returns to normal eyes)
     this.idleFlashTimer = 0;
-    this.nextIdleFlashInterval = 6 + Math.random() * 4; // First flash in 6-10s
+    this.nextIdleFlashInterval = 45.0 + Math.random() * 15.0; // Easter egg flash every 45-60s
     this.isShowingIdleFlash = false;
     this.idleFlashRemaining = 0;
+
+    // Listening duration timer (triggers kind & caring prompt when > 5s of silence)
+    this.listeningTimer = 0;
 
     // Point Light colors (synced to screen glow)
     this.lightColor = new THREE.Color(0x38bdf8);
@@ -138,6 +168,11 @@ export class TVScreenManager {
       this.idleFlashTimer = 0;
     }
 
+    // Reset listening timer when leaving LISTENING mode
+    if (mode !== ScreenModes.LISTENING) {
+      this.listeningTimer = 0;
+    }
+
     switch (mode) {
       case ScreenModes.LOADING:
         this.lightColor.setHex(0x38bdf8);
@@ -146,7 +181,7 @@ export class TVScreenManager {
       case ScreenModes.IDLE:
         this.lightColor.setHex(0x38bdf8); // Clean cyan
         this.lightIntensity = 2.2;
-        this.nextIdleFlashInterval = 7 + Math.random() * 5; // Fast 7-12s when entering idle
+        this.nextIdleFlashInterval = 45.0 + Math.random() * 15.0; // Easter egg flash every 45-60s
         break;
       case ScreenModes.LISTENING:
         this.lightColor.setHex(0x10b981); // Emerald pulse
@@ -278,8 +313,9 @@ export class TVScreenManager {
   }
 
   setPointerLook(x, y) {
-    this.eyeTargetX = THREE.MathUtils.clamp(x * 24, -28, 28);
-    this.eyeTargetY = THREE.MathUtils.clamp(-y * 18, -20, 20);
+    // Expanded expressive gaze travel across CRT screen: ±52px horizontal, ±38px vertical
+    this.eyeTargetX = THREE.MathUtils.clamp(x * 52, -52, 52);
+    this.eyeTargetY = THREE.MathUtils.clamp(-y * 38, -38, 38);
   }
 
   applyToModel(model) {
@@ -364,13 +400,56 @@ export class TVScreenManager {
     this.eyeCurrentX = THREE.MathUtils.lerp(this.eyeCurrentX, this.eyeTargetX, deltaTime * 10);
     this.eyeCurrentY = THREE.MathUtils.lerp(this.eyeCurrentY, this.eyeTargetY, deltaTime * 10);
 
+    // Periodic Easter Egg Image Flash during IDLE (alternates between normal eyes and memories/memes)
+    if (this.currentMode === ScreenModes.IDLE) {
+      if (!this.isShowingIdleFlash) {
+        this.idleFlashTimer += deltaTime;
+        if (this.idleFlashTimer >= this.nextIdleFlashInterval) {
+          const loadedItems = this.idleFlashList.filter(item => item.loaded);
+          if (loadedItems.length > 0) {
+            this.currentFlashIndex = (this.currentFlashIndex + 1) % loadedItems.length;
+            this.activeFlashItem = loadedItems[this.currentFlashIndex];
+            this.isShowingIdleFlash = true;
+            this.idleFlashRemaining = 3.0; // Show full-screen image for 3.0s
+            this.triggerGlitch(0.18);
+            soundFX.playGlitch();
+            this.idleFlashTimer = 0;
+            this.nextIdleFlashInterval = 45.0 + Math.random() * 15.0; // Next flash in 45-60s
+          }
+        }
+      } else {
+        this.idleFlashRemaining -= deltaTime;
+        if (this.idleFlashRemaining <= 0) {
+          this.isShowingIdleFlash = false;
+          this.idleFlashRemaining = 0;
+          this.triggerGlitch(0.18);
+          soundFX.playGlitch();
+        }
+      }
+    } else {
+      this.idleFlashTimer = 0;
+      this.isShowingIdleFlash = false;
+      this.idleFlashRemaining = 0;
+    }
+
+    // Track continuous listening duration (for caring prompts when silent > 5s)
+    if (this.currentMode === ScreenModes.LISTENING) {
+      if (this.speechVolumeSmoothed > 0.18) {
+        this.listeningTimer = 0;
+      } else {
+        this.listeningTimer += deltaTime;
+      }
+    } else {
+      this.listeningTimer = 0;
+    }
+
     const { ctx, canvas } = this;
     const w = 512;
     const h = 512;
 
     // Dynamic emissive pulse matching speech volume
     if (this.screenMaterial) {
-      if (this.currentMode === ScreenModes.IMAGE) {
+      if (this.currentMode === ScreenModes.IMAGE || (this.currentMode === ScreenModes.IDLE && this.isShowingIdleFlash)) {
         this.screenMaterial.emissiveIntensity = 0.55;
       } else {
         this.screenMaterial.emissiveIntensity = 1.45 + this.speechVolumeSmoothed * 0.45;
@@ -388,7 +467,11 @@ export class TVScreenManager {
         this.renderLoading(ctx, w, h);
         break;
       case ScreenModes.IDLE:
-        this.renderIdleAttentive(ctx, w, h);
+        if (this.isShowingIdleFlash && this.activeFlashItem && this.activeFlashItem.loaded) {
+          this.renderProfileFlash(ctx, w, h);
+        } else {
+          this.renderIdleAttentive(ctx, w, h);
+        }
         break;
       case ScreenModes.LISTENING:
         this.renderListening(ctx, w, h);
@@ -499,322 +582,403 @@ export class TVScreenManager {
     ctx.fillRect(cx - 98, cy + 94, (stepPct / 100) * 196, 6);
   }
 
-  // --- 1. IDLE ATTENTIVE MODE (Cyber Eyes + Telemetry) ---
+  // --- 1. IDLE ATTENTIVE MODE (Warm Glowing Eyes — no HUD) ---
   renderIdleAttentive(ctx, w, h) {
-    ctx.fillStyle = '#0a0e14';
+    // Deep vintage CRT glass background
+    ctx.fillStyle = '#080c10';
     ctx.fillRect(0, 0, w, h);
 
     const cx = w / 2 + this.eyeCurrentX;
-    const cy = h / 2 - 25 + this.eyeCurrentY;
+    const cy = h / 2 - 10 + this.eyeCurrentY;
 
-    this.renderTelemetryGrid(ctx, w, h);
+    // Soft ambient screen glow
+    const ambientGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 280);
+    ambientGrad.addColorStop(0, 'rgba(255, 230, 180, 0.06)');
+    ambientGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = ambientGrad;
+    ctx.fillRect(0, 0, w, h);
 
-    // Draw Cyber Eyes
-    this.drawCyberEyes(ctx, cx, cy, '#38bdf8', '#0284c7');
-
-    // Bottom Telemetry Bar
-    ctx.fillStyle = '#0284c7';
-    ctx.font = '700 14px "Space Grotesk", "SF Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('PRADEEP AI // STANDBY', w / 2, h - 36);
-
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(w / 2 - 120, h - 56, 240, 32);
+    // Warm glowing orb eyes
+    this.drawWarmGlowingEyes(ctx, cx, cy);
   }
 
-  // --- 1B. IDLE EASTER EGG: CREATOR BIOMETRIC FLASH (1-2s Hologram) ---
+  // --- 1B. IDLE EASTER EGG: CREATOR & MEME MEMORY FLASH (Full Screen CRT Fit) ---
   renderProfileFlash(ctx, w, h) {
     ctx.fillStyle = '#060a12';
     ctx.fillRect(0, 0, w, h);
 
-    if (!this.profileImage || !this.profileImageLoaded) {
+    const flashItem = this.activeFlashItem || (this.idleFlashList && this.idleFlashList[0]);
+    const img = (flashItem && flashItem.img && flashItem.loaded) ? flashItem.img : this.profileImage;
+    if (!img) {
       this.renderIdleAttentive(ctx, w, h);
       return;
     }
 
-    this.renderTelemetryGrid(ctx, w, h);
+    const iw = img.naturalWidth || img.width || 512;
+    const ih = img.naturalHeight || img.height || 512;
 
-    const img = this.profileImage;
-    // Square size: 360x360 centered with room for telemetry
-    const size = 356;
-    const drawX = (w - size) / 2;
-    const drawY = (h - size) / 2 - 4;
+    // Full screen fit / cover: fills the entire 512x512 CRT TV glass face seamlessly
+    const scale = Math.max(w / iw, h / ih);
+    const nw = iw * scale;
+    const nh = ih * scale;
+    const nx = (w - nw) / 2;
+    const ny = (h - nh) / 2;
 
-    // Header Telemetry
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '700 13px "Space Grotesk", "SF Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('IDENTITY // PRADEEP SELLADURAI', w / 2, drawY - 14);
-
-    // Glowing cyan frame with soft shadow
     ctx.save();
-    ctx.shadowColor = 'rgba(56, 189, 248, 0.55)';
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(drawX - 2, drawY - 2, size + 4, size + 4);
-
-    // Draw crisp creator profile image
-    ctx.drawImage(img, drawX, drawY, size, size);
+    // Draw full-bleed image across the entire screen
+    ctx.drawImage(img, nx, ny, nw, nh);
     ctx.restore();
 
-    // Sleek Corner HUD Brackets
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 3;
-    const corner = 20;
+    const color = (flashItem && flashItem.color) || '#38bdf8';
+    const shadowColor = (flashItem && flashItem.shadowColor) || 'rgba(56, 189, 248, 0.55)';
+    const title = (flashItem && flashItem.title) || 'IDENTITY // PRADEEP SELLADURAI';
+    const subtitle = (flashItem && flashItem.subtitle) || '● NEURAL ARCHETYPE // SYNCHRONIZED';
+    const statusColor = (flashItem && flashItem.statusColor) || '#10b981';
+
+    // Sleek broadcast HUD pill at top
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 10, 18, 0.78)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 8;
+    const badgeW = 290;
+    const badgeH = 28;
+    const badgeX = (w - badgeW) / 2;
+    const badgeY = 16;
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.font = '700 12px "Space Grotesk", "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, w / 2, badgeY + 18);
+    ctx.restore();
+
+    // Sleek status pill at bottom
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 10, 18, 0.78)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1;
+    const subW = 270;
+    const subH = 24;
+    const subX = (w - subW) / 2;
+    const subY = h - 38;
+    ctx.beginPath();
+    ctx.roundRect(subX, subY, subW, subH, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = statusColor;
+    ctx.font = '700 11px "Space Grotesk", "SF Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(subtitle, w / 2, subY + 16);
+    ctx.restore();
+
+    // Glowing cybernetic perimeter border around entire screen
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3.5;
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 12;
+    ctx.strokeRect(6, 6, w - 12, h - 12);
+
+    // Corner HUD brackets on screen perimeter
+    const corner = 26;
+    ctx.lineWidth = 5;
     // Top-Left
     ctx.beginPath();
-    ctx.moveTo(drawX - 8, drawY + corner);
-    ctx.lineTo(drawX - 8, drawY - 8);
-    ctx.lineTo(drawX + corner, drawY - 8);
+    ctx.moveTo(6, 6 + corner);
+    ctx.lineTo(6, 6);
+    ctx.lineTo(6 + corner, 6);
     ctx.stroke();
     // Top-Right
     ctx.beginPath();
-    ctx.moveTo(drawX + size - corner, drawY - 8);
-    ctx.lineTo(drawX + size + 8, drawY - 8);
-    ctx.lineTo(drawX + size + 8, drawY + corner);
+    ctx.moveTo(w - 6 - corner, 6);
+    ctx.lineTo(w - 6, 6);
+    ctx.lineTo(w - 6, 6 + corner);
     ctx.stroke();
     // Bottom-Left
     ctx.beginPath();
-    ctx.moveTo(drawX - 8, drawY + size - corner);
-    ctx.lineTo(drawX - 8, drawY + size + 8);
-    ctx.lineTo(drawX + corner, drawY + size + 8);
+    ctx.moveTo(6, h - 6 - corner);
+    ctx.lineTo(6, h - 6);
+    ctx.lineTo(6 + corner, h - 6);
     ctx.stroke();
     // Bottom-Right
     ctx.beginPath();
-    ctx.moveTo(drawX + size - corner, drawY + size + 8);
-    ctx.lineTo(drawX + size + 8, drawY + size + 8);
-    ctx.lineTo(drawX + size + 8, drawY + size - corner);
-    ctx.stroke();
-
-    // Footer Biometric Status
-    ctx.fillStyle = '#10b981';
-    ctx.font = '700 12px "Space Grotesk", "SF Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('● NEURAL ARCHETYPE // SYNCHRONIZED', w / 2, drawY + size + 24);
-
-    // Subtle horizontal scanline beam sweep
-    const beamY = drawY + ((this.time * 240) % size);
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
-    ctx.fillRect(drawX, beamY, size, 4);
-  }
-
-  // --- 2. LISTENING MODE (Receptive Pulse & Radar Eyes) ---
-  renderListening(ctx, w, h) {
-    ctx.fillStyle = '#06130e';
-    ctx.fillRect(0, 0, w, h);
-
-    const cx = w / 2 + this.eyeCurrentX;
-    const cy = h / 2 - 35 + this.eyeCurrentY;
-
-    // Concentric Sonar Rings
-    const pulseCount = 4;
-    for (let i = 0; i < pulseCount; i++) {
-      const radius = ((this.time * 90 + i * 50) % 200) + 20;
-      const alpha = Math.max(0, 1 - radius / 220) * 0.45;
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2 - 20, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(16, 185, 129, ${alpha})`;
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-
-    // Wide, attentive emerald eyes
-    this.drawCyberEyes(ctx, cx, cy, '#34d399', '#059669', 1.2);
-
-    // Audio Intake Indicator
-    const micVol = this.speechVolumeSmoothed;
-    const barW = 8;
-    const barGap = 4;
-    const totalBars = 16;
-    const startX = (w - (totalBars * (barW + barGap))) / 2;
-
-    for (let i = 0; i < totalBars; i++) {
-      const hVal = (Math.sin(this.time * 8 + i * 0.4) * 0.3 + 0.4 + micVol * 0.6) * 35;
-      ctx.fillStyle = '#10b981';
-      ctx.fillRect(startX + i * (barW + barGap), h - 85 - hVal / 2, barW, hVal);
-    }
-
-    ctx.fillStyle = '#10b981';
-    ctx.font = '700 16px "Space Grotesk", "SF Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('● LISTENING...', w / 2, h - 35);
-  }
-
-  // --- 3. THINKING MODE (Synaptic Matrix & Glitch Stream) ---
-  renderThinking(ctx, w, h) {
-    ctx.fillStyle = '#11071f';
-    ctx.fillRect(0, 0, w, h);
-
-    // Matrix Rain Stream in background
-    ctx.font = '13px monospace';
-    const colWidth = w / this.matrixColumns;
-    for (let i = 0; i < this.matrixColumns; i++) {
-      const char = this.matrixChars[(Math.random() * this.matrixChars.length) | 0];
-      const x = i * colWidth + 4;
-      const y = this.matrixDrops[i] * 16;
-      ctx.fillStyle = '#c084fc';
-      ctx.fillText(char, x, y);
-      if (y > h && Math.random() > 0.95) {
-        this.matrixDrops[i] = 0;
-      }
-      this.matrixDrops[i]++;
-    }
-
-    // Thinking Eyes (Looking slightly up)
-    const cx = w / 2;
-    const cy = h / 2 - 50 + Math.sin(this.time * 6) * 4;
-    this.drawCyberEyes(ctx, cx, cy, '#c084fc', '#7e22ce', 0.9);
-
-    // Rotating Neural Arc
-    ctx.save();
-    ctx.translate(w / 2, h - 90);
-    ctx.rotate(this.time * 5);
-    ctx.beginPath();
-    ctx.arc(0, 0, 26, 0, Math.PI * 1.4);
-    ctx.strokeStyle = '#e9d5ff';
-    ctx.lineWidth = 4;
+    ctx.moveTo(w - 6 - corner, h - 6);
+    ctx.lineTo(w - 6, h - 6);
+    ctx.lineTo(w - 6, h - 6 - corner);
     ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = '#e9d5ff';
-    ctx.font = '700 16px "Space Grotesk", "SF Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('REASONING // PIPECAT GEMINI', w / 2, h - 35);
+    // Subtle horizontal beam sweep across screen
+    const beamY = (this.time * 260) % h;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.fillRect(0, beamY, w, 5);
   }
 
-  // --- 4. SPEAKING & LIVE TRANSCRIPT MODE (Eyes + Transcript + Mouth Waveform) ---
-  renderSpeakingTranscript(ctx, w, h) {
-    ctx.fillStyle = '#081018';
+  // --- 2. LISTENING MODE (Warm Attentive Eyes + 2-3 Word Full-Screen Caring Prompt + Image Loop) ---
+  renderListening(ctx, w, h) {
+    // If silence is under 5 seconds, simply display attentive warm glowing eyes
+    if (this.listeningTimer <= 5.0) {
+      ctx.fillStyle = '#070d0b';
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2 + this.eyeCurrentX;
+      const cy = h / 2 - 10 + this.eyeCurrentY;
+
+      const breathAlpha = 0.06 + Math.sin(this.time * 2.0) * 0.02;
+      const ambientGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 270);
+      ambientGrad.addColorStop(0, `rgba(180, 255, 215, ${breathAlpha})`);
+      ambientGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ambientGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      this.drawWarmGlowingEyes(ctx, cx, cy, 1.05);
+      return;
+    }
+
+    // Silence > 5s: Caring Words (0-3s) -> Attentive warm glowing eyes (3-9s)
+    const elapsedAfter5s = this.listeningTimer - 5.0;
+    const cycleDuration = 9.0;
+    const cycleTime = elapsedAfter5s % cycleDuration;
+    const cycleIndex = Math.floor(elapsedAfter5s / cycleDuration);
+
+    const caringWords = [
+      "I'M LISTENING",
+      "TAKE YOUR TIME",
+      "I'M RIGHT HERE",
+      "NO RUSH",
+      "STILL HERE",
+      "HERE FOR YOU"
+    ];
+
+    // PHASE 1: Caring 2-3 Words capturing the full screen (0.0s - 3.0s) - EYES HIDDEN
+    if (cycleTime < 3.0) {
+      ctx.fillStyle = '#070d0b';
+      ctx.fillRect(0, 0, w, h);
+
+      const fadeIn = Math.min(1.0, cycleTime / 0.35);
+      const fadeOut = Math.min(1.0, (3.0 - cycleTime) / 0.35);
+      const textAlpha = Math.min(fadeIn, fadeOut);
+
+      const promptWord = caringWords[cycleIndex % caringWords.length];
+
+      ctx.save();
+      ctx.globalAlpha = textAlpha;
+
+      // Soft ambient radial glow behind the words
+      const textGlow = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 240);
+      textGlow.addColorStop(0, 'rgba(52, 211, 153, 0.15)');
+      textGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = textGlow;
+      ctx.fillRect(0, 0, w, h);
+
+      // 2 to 3 bold words capturing the full screen (NO background box, NO border)
+      ctx.font = '800 46px "Space Grotesk", -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Radiant emerald CRT typography glow
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(52, 211, 153, 0.95)';
+      ctx.shadowBlur = 28;
+      ctx.fillText(promptWord, w / 2, h / 2);
+
+      // Core crisp specular pass
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.85)';
+      ctx.shadowBlur = 10;
+      ctx.fillText(promptWord, w / 2, h / 2);
+
+      ctx.restore();
+      return;
+    }
+
+    // PHASE 2: Eyes become visible again (3.0s - 9.0s)
+    ctx.fillStyle = '#070d0b';
     ctx.fillRect(0, 0, w, h);
 
-    // Top Section: Expressive Speaking Eyes
-    const eyeY = 95 + Math.sin(this.time * 4) * 3;
-    const eyeX = w / 2 + this.eyeCurrentX * 0.7;
-    const eyeGlow = 0.85 + Math.sin(this.time * 8) * 0.15;
+    const fadeIn = Math.min(1.0, (cycleTime - 3.0) / 0.35);
+    const fadeOut = Math.min(1.0, (9.0 - cycleTime) / 0.35);
+    const eyeAlpha = Math.min(fadeIn, fadeOut);
 
-    this.drawCyberEyes(ctx, eyeX, eyeY, `rgba(56, 189, 248, ${eyeGlow})`, '#0284c7', 0.95);
+    const cx = w / 2 + this.eyeCurrentX;
+    const cy = h / 2 - 10 + this.eyeCurrentY;
 
-    // Middle Section: Real-Time Scrolling Transcript
+    const breathAlpha = 0.06 + Math.sin(this.time * 2.0) * 0.02;
+    const ambientGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, 270);
+    ambientGrad.addColorStop(0, `rgba(180, 255, 215, ${breathAlpha})`);
+    ambientGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = ambientGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.globalAlpha = eyeAlpha;
+    this.drawWarmGlowingEyes(ctx, cx, cy, 1.05);
+    ctx.restore();
+  }
+
+  // --- 3. THINKING MODE (Gentle upward glance — no matrix/arc) ---
+  renderThinking(ctx, w, h) {
+    ctx.fillStyle = '#09080f';
+    ctx.fillRect(0, 0, w, h);
+
+    // Gentle upward gaze during thinking
+    const cx = w / 2 + this.eyeCurrentX * 0.5;
+    // Eyes drift up slightly independent of cursor during thinking
+    const cy = h / 2 - 20 + Math.sin(this.time * 1.2) * 6 + this.eyeCurrentY * 0.5;
+
+    // Very subtle purple-warm ambient
+    const breathAlpha = 0.04 + Math.sin(this.time * 1.8) * 0.015;
+    const ambientGrad = ctx.createRadialGradient(w / 2, h / 2 - 20, 0, w / 2, h / 2, 260);
+    ambientGrad.addColorStop(0, `rgba(220, 200, 255, ${breathAlpha})`);
+    ambientGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = ambientGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Slightly narrowed eyes for contemplation
+    this.drawWarmGlowingEyes(ctx, cx, cy, 0.88);
+  }
+
+  // --- 4. SPEAKING MODE (Warm eyes top + clean scrolling transcript + subtle mouth) ---
+  renderSpeakingTranscript(ctx, w, h) {
+    ctx.fillStyle = '#080c10';
+    ctx.fillRect(0, 0, w, h);
+
+    // Top Section: Warm Eyes while speaking (follows cursor gaze X and Y)
+    const eyeY = 110 + Math.sin(this.time * 3.5) * 2 + this.eyeCurrentY * 0.6;
+    const eyeX = w / 2 + this.eyeCurrentX * 0.75;
+    this.drawWarmGlowingEyes(ctx, eyeX, eyeY, 0.88);
+
+    // Thin separator
+    ctx.strokeStyle = 'rgba(255, 220, 160, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, 178);
+    ctx.lineTo(w - 40, 178);
+    ctx.stroke();
+
+    // Middle Section: Clean scrolling transcript
     ctx.save();
     ctx.beginPath();
-    ctx.rect(30, 160, w - 60, 220);
+    ctx.rect(30, 188, w - 60, 215);
     ctx.clip();
 
-    ctx.fillStyle = '#e0f2fe';
-    ctx.font = '600 20px "Space Grotesk", "SF Pro Display", sans-serif';
+    ctx.fillStyle = '#e8e8e8';
+    ctx.font = '500 19px "Space Grotesk", "SF Pro Display", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
-    const textToRender = this.transcriptText || 'Connecting to digital twin neural stream...';
+    const textToRender = this.transcriptText || '';
     const lines = this.wrapText(ctx, textToRender, w - 80);
 
-    const lineHeight = 28;
+    const lineHeight = 27;
     const maxVisibleLines = 6;
-    const totalContentHeight = lines.length * lineHeight;
     let targetScroll = 0;
-
     if (lines.length > maxVisibleLines) {
       targetScroll = (lines.length - maxVisibleLines) * lineHeight;
     }
     this.transcriptScrollY = THREE.MathUtils.lerp(this.transcriptScrollY, targetScroll, 0.15);
-
-    const startY = 170 - this.transcriptScrollY;
+    const startY = 192 - this.transcriptScrollY;
 
     lines.forEach((line, i) => {
       const lineY = startY + i * lineHeight;
-      if (lineY > 140 && lineY < 380) {
-        ctx.fillStyle = (i === lines.length - 1) ? '#ffffff' : '#94a3b8';
+      if (lineY > 180 && lineY < 408) {
+        ctx.fillStyle = (i === lines.length - 1) ? 'rgba(255,255,255,0.95)' : 'rgba(180,180,180,0.65)';
         ctx.fillText(line, 40, lineY);
-
         if (i === lines.length - 1 && this.cursorBlink) {
-          const lineMetrics = ctx.measureText(line);
-          ctx.fillStyle = '#38bdf8';
-          ctx.fillRect(40 + lineMetrics.width + 4, lineY + 3, 10, 20);
+          const metrics = ctx.measureText(line);
+          ctx.fillStyle = 'rgba(255, 210, 140, 0.8)';
+          ctx.fillRect(40 + metrics.width + 3, lineY + 4, 2, 16);
         }
       }
     });
     ctx.restore();
 
-    // Divider Line
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(36, 395);
-    ctx.lineTo(w - 36, 395);
-    ctx.stroke();
-
-    // Bottom Section: Audio Reactive Speech Equalizer Mouth
-    const mouthY = 445;
-    const vol = Math.max(this.speechVolumeSmoothed, 0.15);
-    const bars = 22;
-    const bWidth = 10;
-    const bGap = 6;
-    const fullW = bars * (bWidth + bGap);
-    const startBX = (w - fullW) / 2;
-
-    for (let i = 0; i < bars; i++) {
-      const freqSample = this.audioFrequencyData[i % this.audioFrequencyData.length] / 255;
-      const targetH = Math.max(6, (freqSample * 0.7 + vol * 0.6 + Math.sin(this.time * 12 + i * 0.6) * 0.2) * 55);
-      this.barHeights[i] = THREE.MathUtils.lerp(this.barHeights[i], targetH, 0.25);
-
-      const bh = this.barHeights[i];
-      const bx = startBX + i * (bWidth + bGap);
-
-      // Cyan to Emerald speech gradient
-      const grad = ctx.createLinearGradient(0, mouthY - bh / 2, 0, mouthY + bh / 2);
-      grad.addColorStop(0, '#38bdf8');
-      grad.addColorStop(1, '#10b981');
-      ctx.fillStyle = grad;
-
-      ctx.beginPath();
-      ctx.roundRect(bx, mouthY - bh / 2, bWidth, bh, 4);
-      ctx.fill();
-    }
-
-    // Teleprompter Status
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = '700 12px "Space Grotesk", monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText('LIVE VOX AI // 48kHz', w - 40, h - 22);
-  }
-
-  // --- CYBER EYES HELPER ---
-  drawCyberEyes(ctx, cx, cy, primaryColor, secondaryColor, scale = 1.0) {
-    const eyeSpacing = 85 * scale;
-    const eyeW = 44 * scale;
-    const eyeH = this.isBlinking ? 4 : (34 * scale);
-
-    // Left Eye
-    this.drawSingleEye(ctx, cx - eyeSpacing, cy, eyeW, eyeH, primaryColor, secondaryColor);
-    // Right Eye
-    this.drawSingleEye(ctx, cx + eyeSpacing, cy, eyeW, eyeH, primaryColor, secondaryColor);
-  }
-
-  drawSingleEye(ctx, x, y, ew, eh, primaryColor, secondaryColor) {
+    // Subtle minimal mouth — a single warm animated line at the bottom
+    const vol = Math.max(this.speechVolumeSmoothed, 0.08);
+    const mouthW = 80 + vol * 60;
+    const mouthH = 3 + vol * 10;
+    const mouthX = w / 2;
+    const mouthY = h - 70;
     ctx.save();
-    ctx.shadowColor = primaryColor;
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = primaryColor;
-
+    ctx.globalAlpha = 0.7 + vol * 0.3;
+    const mGrad = ctx.createLinearGradient(mouthX - mouthW / 2, 0, mouthX + mouthW / 2, 0);
+    mGrad.addColorStop(0, 'rgba(255,200,120,0)');
+    mGrad.addColorStop(0.3, 'rgba(255,220,160,0.85)');
+    mGrad.addColorStop(0.7, 'rgba(255,220,160,0.85)');
+    mGrad.addColorStop(1, 'rgba(255,200,120,0)');
+    ctx.fillStyle = mGrad;
     ctx.beginPath();
-    ctx.ellipse(x, y, ew, eh, 0, 0, Math.PI * 2);
+    ctx.ellipse(mouthX, mouthY, mouthW / 2, mouthH / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- WARM GLOWING EYE HELPERS ---
+
+  /**
+   * Draw two warm, soft circular glowing orbs (Locomotive-style).
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} cx  - horizontal center (includes cursor offset)
+   * @param {number} cy  - vertical center (includes cursor offset)
+   * @param {number} scale - uniform scale multiplier (default 1.0)
+   */
+  drawWarmGlowingEyes(ctx, cx, cy, scale = 1.0) {
+    const spacing = 88 * scale;
+    const radius = 38 * scale;
+
+    this.drawWarmEye(ctx, cx - spacing, cy, radius);
+    this.drawWarmEye(ctx, cx + spacing, cy, radius);
+  }
+
+  drawWarmEye(ctx, x, y, radius) {
+    const blinkRadius = this.isBlinking ? radius * 0.07 : radius;
+
+    ctx.save();
+
+    // Outer soft halo (large, very transparent)
+    const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.2);
+    halo.addColorStop(0, 'rgba(255, 235, 180, 0.18)');
+    halo.addColorStop(0.5, 'rgba(255, 220, 150, 0.07)');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.ellipse(x, y, radius * 2.2, blinkRadius * 2.2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    if (!this.isBlinking) {
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.ellipse(x + this.eyeCurrentX * 0.2, y + this.eyeCurrentY * 0.2, ew * 0.45, eh * 0.45, 0, 0, Math.PI * 2);
-      ctx.fill();
+    // Core warm orb gradient
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    grad.addColorStop(0,    'rgba(255, 255, 255, 0.97)');
+    grad.addColorStop(0.22, 'rgba(255, 248, 225, 0.93)');
+    grad.addColorStop(0.50, 'rgba(255, 225, 170, 0.70)');
+    grad.addColorStop(0.78, 'rgba(245, 195, 120, 0.28)');
+    grad.addColorStop(1.0,  'rgba(240, 180, 100, 0.0)');
 
-      ctx.strokeStyle = secondaryColor;
-      ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255, 220, 140, 0.65)';
+    ctx.shadowBlur = 28;
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(x, y, radius, blinkRadius, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner bright specular highlight (top-left)
+    if (!this.isBlinking) {
+      const specX = x - radius * 0.28;
+      const specY = y - radius * 0.28;
+      const spec = ctx.createRadialGradient(specX, specY, 0, specX, specY, radius * 0.36);
+      spec.addColorStop(0, 'rgba(255,255,255,0.70)');
+      spec.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = spec;
       ctx.beginPath();
-      ctx.moveTo(x - ew * 0.8, y);
-      ctx.lineTo(x + ew * 0.8, y);
-      ctx.stroke();
+      ctx.arc(specX, specY, radius * 0.36, 0, Math.PI * 2);
+      ctx.fill();
     }
+
     ctx.restore();
   }
 

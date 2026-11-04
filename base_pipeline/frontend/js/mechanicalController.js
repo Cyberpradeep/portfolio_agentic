@@ -49,16 +49,10 @@ export class MechanicalController {
   init(model) {
     this.model = model;
 
-    // 1. Locate Giant Back Claws
-    this.leftClaw = model.getObjectByName('melee') || model.getObjectByName('melee_Claw_0');
-    this.rightClaw = model.getObjectByName('melee001') || model.getObjectByName('melee001_Claw_0');
+    // 1. Hand Claws & Blades (Omitted: hidden in Phase 1)
+    this.leftClaw = null;
+    this.rightClaw = null;
 
-    if (this.leftClaw) {
-      this.leftClawInitialRot.copy(this.leftClaw.rotation);
-    }
-    if (this.rightClaw) {
-      this.rightClawInitialRot.copy(this.rightClaw.rotation);
-    }
 
     // 2. Locate Chest 9-Speaker Driver Grid and Forearm Membranes
     this.subwooferDrivers = [];
@@ -77,13 +71,8 @@ export class MechanicalController {
               child.material.emissive = new THREE.Color(0x000000);
             }
           }
-        } else if (name.includes('membrane') || name.includes('pierscienczarn')) {
-          this.subwooferDrivers.push({
-            mesh: child,
-            initialScale: child.scale.clone(),
-            isChest: false
-          });
         }
+        // Note: Side speaker membranes and rings (membrane, pierscienczarn) are hidden in Phase 1
       }
     });
 
@@ -220,11 +209,11 @@ export class MechanicalController {
       }
     }
 
-    // 3. Shoulder Satellite TVs tracking
+    // 3. Shoulder Satellite TVs tracking (subtle, aligned with head)
     if (this.shoulderTracking && pointerNormalized && this.shoulderTVs.length > 0) {
       this.shoulderTVs.forEach(tv => {
-        tv.obj.rotation.y = tv.initialRot.y + pointerNormalized.x * 0.22;
-        tv.obj.rotation.x = tv.initialRot.x - pointerNormalized.y * 0.15;
+        tv.obj.rotation.y = tv.initialRot.y + pointerNormalized.x * 0.06;
+        tv.obj.rotation.x = tv.initialRot.x - pointerNormalized.y * 0.04;
       });
     }
   }

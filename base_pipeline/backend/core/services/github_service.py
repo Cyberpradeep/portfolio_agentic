@@ -8,11 +8,25 @@ Provides real-time, cached (5-minute TTL) access to:
 - Universal repository name resolution
 """
 
+import os
 import time
 import re
 from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import urlparse
 import httpx
+
+try:
+    from config import GITHUB_PAT
+except ImportError:
+    GITHUB_PAT = os.getenv("GITHUB_PAT")
+
+
+def _get_headers() -> Dict[str, str]:
+    headers = _get_headers()
+    pat = GITHUB_PAT or os.getenv("GITHUB_PAT")
+    if pat:
+        headers["Authorization"] = f"token {pat}"
+    return headers
 
 DEFAULT_GITHUB_USERNAME = "Cyberpradeep"
 CACHE_TTL_SECONDS = 300  # 5 minutes in-memory cache to preserve voice sub-second latency & avoid rate limits
@@ -94,10 +108,7 @@ async def get_repo_recent_commits(
         return cached
 
     url = f"https://api.github.com/repos/{owner}/{repo}/commits?per_page={limit}"
-    headers = {
-        "User-Agent": "Pradeep-Digital-Twin/1.0",
-        "Accept": "application/vnd.github.v3+json",
-    }
+    headers = _get_headers()
 
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
@@ -170,10 +181,7 @@ async def get_recent_pushed_repos(
         return cached
 
     url = f"https://api.github.com/users/{username}/repos?sort=pushed&direction=desc&per_page={limit}"
-    headers = {
-        "User-Agent": "Pradeep-Digital-Twin/1.0",
-        "Accept": "application/vnd.github.v3+json",
-    }
+    headers = _get_headers()
 
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
@@ -227,10 +235,7 @@ async def get_user_recent_activity(
         return cached
 
     url = f"https://api.github.com/users/{username}/events/public?per_page={limit}"
-    headers = {
-        "User-Agent": "Pradeep-Digital-Twin/1.0",
-        "Accept": "application/vnd.github.v3+json",
-    }
+    headers = _get_headers()
 
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:

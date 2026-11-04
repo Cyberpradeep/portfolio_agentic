@@ -124,14 +124,25 @@ async def events(session_id: Optional[str] = Query(None)):
         try:
             await queue.put({"type": "status", "state": "ready", "session_id": sid})
             while True:
-                event = await queue.get()
-                yield f"data: {json.dumps(event)}\n\n"
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
         except asyncio.CancelledError:
             pass
         finally:
             connection_registry.unregister_sse_queue(sid, queue)
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        }
+    )
 
 
 # --------------------------------------------------------------------------

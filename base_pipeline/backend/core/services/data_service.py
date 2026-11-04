@@ -90,11 +90,22 @@ def find_project(project_name: str) -> Optional[dict]:
         ):
             return proj
 
-    # 2. Word-level fuzzy matching
+    # 2. Word-level fuzzy matching against name, id, and aliases
     query_words = set(clean_query.split())
     for proj in projects:
-        proj_words = set(proj.get("name", "").lower().split() + proj.get("id", "").lower().split())
+        aliases = proj.get("aliases", [])
+        alias_words = []
+        for a in aliases:
+            alias_words.extend(str(a).lower().split())
+        proj_words = set(proj.get("name", "").lower().split() + proj.get("id", "").lower().split() + alias_words)
         if len(query_words.intersection(proj_words)) >= 2 or any(qw in proj.get("name", "").lower() for qw in query_words if len(qw) > 4):
+            return proj
+
+    # 3. Fallback: match summary or category keywords
+    for proj in projects:
+        summary = proj.get("summary", "").lower()
+        category = [c.lower() for c in proj.get("category", [])] if isinstance(proj.get("category"), list) else []
+        if any(qw in summary for qw in query_words if len(qw) > 3) or any(qw in category for qw in query_words):
             return proj
 
     return None
@@ -172,9 +183,9 @@ def search_faqs(query: str) -> List[dict]:
     if not query or not str(query).strip():
         return []
     clean_q = str(query).strip().lower()
-    query_tokens = set(clean_q.split())
+    query_tokens = [t for t in clean_q.split() if len(t) > 2]
     data = get_faqs_data()
-    results = []
+    scored_results = []
 
     for category in data.values():
         if isinstance(category, list):
@@ -183,10 +194,34 @@ def search_faqs(query: str) -> List[dict]:
                     continue
                 q_text = faq.get("question", "").lower()
                 q_id = faq.get("id", "").lower()
-                # 1. Exact substring in question or id
-                if clean_q in q_text or clean_q in q_id:
-                    results.append(faq)
-                # 2. Token overlap (e.g. "why" and "ai")
-                elif query_tokens and query_tokens.issubset(set(q_text.split() + q_id.split("_"))):
-                    results.append(faq)
-    return results[:5]
+                a_text = faq.get("answer", "").lower()
+
+                score = 0
+                if clean_q in q_text:
+                    score += 10
+                if clean_q in q_id:
+                    score += 8
+                if clean_q in a_text:
+                    score += 4
+
+                for tok in query_tokens:
+                    if tok in q_text:
+                        score += 3
+                    elif tok in q_id:
+                        score += 2
+                    elif tok in a_text:
+                        score += 1
+
+                if score > 0:
+                    scored_results.append((score, faq))
+
+    scored_results.sort(key=lambda x: x[0], reverse=True)
+    seen_ids = set()
+    deduped = []
+    for _, faq in scored_results:
+        fid = faq.get("id")
+        if fid not in seen_ids:
+            seen_ids.add(fid)
+            deduped.append(faq)
+
+    return deduped[:5]

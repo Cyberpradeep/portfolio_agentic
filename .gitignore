@@ -20,3 +20,5 @@
 base_pipeline/**/data_backup_old/
 base_pipeline/**/data_backup_old/**
 *.zip
+
+base_pipeline/frontend/tv_preview*

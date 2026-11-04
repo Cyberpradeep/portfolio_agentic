@@ -7,6 +7,16 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GITHUB_PAT
+        sync: false
+      - key: SENDER_EMAIL
+        sync: false
+      - key: SENDER_PASSWORD
+        sync: false
+      - key: RECEIVER_EMAIL
+        sync: false
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: PYTHONSAFEPATH

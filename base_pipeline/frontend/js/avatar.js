@@ -3,9 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
-import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=58';
-import { animationController } from './animationController.js?v=5';
-import { mechanicalController } from './mechanicalController.js?v=6';
+import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=67';
+import { animationController } from './animationController.js?v=8';
+import { mechanicalController } from './mechanicalController.js?v=7';
 import { soundFX } from './soundFx.js';
 
 let scene, camera, renderer, controls;
@@ -13,6 +13,8 @@ let screenPointLight, keyLight, fillLight, rimLight, hemiLight;
 let shadowPlane;
 let clock = new THREE.Clock();
 let modelRoot = null;
+let modelBasePos = new THREE.Vector3();
+let modelBaseRot = new THREE.Euler();
 let pointer = new THREE.Vector2();
 let isInitialized = false;
 let idleCameraTimer = null;
@@ -21,16 +23,19 @@ let isUserInteracting = false;
 let userInteractionTimeout = null;
 
 const CAMERA_PRESETS = {
-  FULL_BODY: { pos: new THREE.Vector3(0, 1.85, 4.3), lookAt: new THREE.Vector3(0, 1.75, 0) },
-  // Locomotive Passport-Size TV-Head Closeup (Centered overview)
-  FACE_CAM: { pos: new THREE.Vector3(0, 2.30, 2.85), lookAt: new THREE.Vector3(0, 2.30, 0) },
+  // Default: Upper-body bust framing — character fills right stage naturally
+  BUST: { pos: new THREE.Vector3(0, 2.30, 2.60), lookAt: new THREE.Vector3(0, 2.10, 0) },
+  // Full body fallback (not used by default)
+  FULL_BODY: { pos: new THREE.Vector3(0, 1.88, 4.90), lookAt: new THREE.Vector3(0, 1.58, 0) },
+  // Locomotive Passport-Size TV-Head Closeup (Centered overview with safe headroom)
+  FACE_CAM: { pos: new THREE.Vector3(0, 2.22, 3.20), lookAt: new THREE.Vector3(0, 2.05, 0) },
   // Dedicated Screen Inspection Zoom
-  SCREEN_CLOSEUP: { pos: new THREE.Vector3(0, 2.32, 1.90), lookAt: new THREE.Vector3(0, 2.32, 0) },
+  SCREEN_CLOSEUP: { pos: new THREE.Vector3(0, 2.32, 2.00), lookAt: new THREE.Vector3(0, 2.25, 0) },
   // Studio 3-Quarter Angle
-  STUDIO_3Q: { pos: new THREE.Vector3(-1.8, 1.95, 3.8), lookAt: new THREE.Vector3(0, 1.75, 0) }
+  STUDIO_3Q: { pos: new THREE.Vector3(-1.8, 1.95, 4.2), lookAt: new THREE.Vector3(0, 1.65, 0) }
 };
 
-let currentActivePreset = CAMERA_PRESETS.FULL_BODY;
+let currentActivePreset = CAMERA_PRESETS.BUST;
 
 function getResponsiveCameraPreset(preset) {
   if (!preset) return { pos: new THREE.Vector3(0, 1.85, 4.3), lookAt: new THREE.Vector3(0, 1.75, 0) };
@@ -43,23 +48,21 @@ function getResponsiveCameraPreset(preset) {
   if (aspect < 0.55) {
     // Ultra-tall mobile portrait (Pixel 8, iPhone 14/15/16 Pro Max, Galaxy S series)
     if (isGenUIActive) {
-      // Frame TV head centered in the upper ~55% viewport above the compact bottom sheet
       return {
         pos: new THREE.Vector3(0, 2.24, 3.80),
         lookAt: new THREE.Vector3(0, 2.04, 0)
       };
     }
     if (isFaceCam) {
-      // Zoom into TV head with wings safely below the topbar header
       return {
-        pos: new THREE.Vector3(0, 2.05, 4.20),
-        lookAt: new THREE.Vector3(0, 1.78, 0)
+        pos: new THREE.Vector3(0, 2.05, 3.80),
+        lookAt: new THREE.Vector3(0, 1.85, 0)
       };
     }
-    // Full body overview: wings reach below topbar, TV head centered above card
+    // Bust overview on ultra-tall mobile
     return {
-      pos: new THREE.Vector3(0, 1.65, 5.70),
-      lookAt: new THREE.Vector3(0, 1.45, 0)
+      pos: new THREE.Vector3(0, 1.90, 4.20),
+      lookAt: new THREE.Vector3(0, 1.70, 0)
     };
   } else if (aspect < 0.85) {
     // Standard mobile & phablet portrait (e.g. 375x667, 390x844, 412x915, 768px tablet portrait)
@@ -71,13 +74,14 @@ function getResponsiveCameraPreset(preset) {
     }
     if (isFaceCam) {
       return {
-        pos: new THREE.Vector3(0, 2.00, 4.10),
-        lookAt: new THREE.Vector3(0, 1.75, 0)
+        pos: new THREE.Vector3(0, 2.00, 3.70),
+        lookAt: new THREE.Vector3(0, 1.80, 0)
       };
     }
+    // Bust framing for standard mobile
     return {
-      pos: new THREE.Vector3(0, 1.65, 5.40),
-      lookAt: new THREE.Vector3(0, 1.45, 0)
+      pos: new THREE.Vector3(0, 1.90, 4.00),
+      lookAt: new THREE.Vector3(0, 1.70, 0)
     };
   } else if (aspect < 1.05) {
     // Tablets in portrait / Square foldables
@@ -112,9 +116,27 @@ function getResponsiveCameraPreset(preset) {
   };
 }
 
+function applyResponsiveViewOffset() {
+  if (!camera) return;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspect = width / height;
+
+  if (aspect >= 1.15) {
+    // Desktop 30/70 ocular weight:
+    // Shift optical center so the robot frames in the right ~62% of the visual stage.
+    // Reduced from 16.5% to 12% so the character isn't pushed too far into the corner.
+    const offsetX = -Math.round(width * 0.12);
+    camera.setViewOffset(width, height, offsetX, 0, width, height);
+  } else {
+    // Mobile & tablet portrait: centered vertical stage
+    camera.clearViewOffset();
+  }
+}
+
 const cameraTarget = {
-  pos: new THREE.Vector3(0, 1.85, 4.3),
-  lookAt: new THREE.Vector3(0, 1.75, 0)
+  pos: new THREE.Vector3(0, 2.30, 2.60),
+  lookAt: new THREE.Vector3(0, 2.10, 0)
 };
 
 function initScene(canvasId) {
@@ -131,8 +153,9 @@ function initScene(canvasId) {
   const width = container.clientWidth || window.innerWidth;
   const height = container.clientHeight || window.innerHeight;
   camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 500);
+  applyResponsiveViewOffset();
 
-  const initial = getResponsiveCameraPreset(CAMERA_PRESETS.FULL_BODY);
+  const initial = getResponsiveCameraPreset(CAMERA_PRESETS.BUST);
   cameraTarget.pos.copy(initial.pos);
   cameraTarget.lookAt.copy(initial.lookAt);
   camera.position.copy(initial.pos);
@@ -161,13 +184,13 @@ function initScene(canvasId) {
     container.appendChild(renderer.domElement);
   }
 
-  // 4. OrbitControls
+  // 4. OrbitControls: camera drag rotation disabled to prevent 180° / side viewing
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
   controls.enablePan = false; // Keeps avatar centered in studio stage
-  controls.maxPolarAngle = Math.PI / 2 + 0.05; // Do not go below floor plane
-  controls.minPolarAngle = Math.PI / 6; // Clamp top-down angle
+  controls.enableRotate = false; // Disables orbital dragging so avatar stays front-facing
+
   controls.minDistance = 2.4; // Clamped close distance to prevent mesh clipping
   controls.maxDistance = 6.2; // Clamped far distance to keep model framed
   controls.target.copy(cameraTarget.lookAt);
@@ -363,7 +386,7 @@ function loadTitanModel() {
     if (hasRevealedStage) return;
     hasRevealedStage = true;
     console.log('[AUTOGREET] Inbound voice active: smoothly revealing 3D Titan stage...');
-    soundFX.playPowerSurge();
+    soundFX.playCRTWarmup();
     tvScreenManager.setMode(ScreenModes.SPEAKING);
     if (loadingScreen) {
       loadingScreen.classList.add('is-exiting');
@@ -383,6 +406,7 @@ function loadTitanModel() {
     startBtn.addEventListener('click', () => {
       if (isDismissing || startBtn.disabled) return;
       isDismissing = true;
+      soundFX.playRelayClick();
       startBtn.classList.add('is-connecting');
       startBtn.classList.remove('is-ready');
 
@@ -457,7 +481,7 @@ function loadTitanModel() {
     }
   );
 
-  // Defer 3D GLTF parsing until text animation has comfortably rendered
+  // Load 3D GLTF asset immediately
   const modelUrl = '/static/model/tv_man_titan.optimized.glb';
   setTimeout(() => {
     const loader = new GLTFLoader(manager);
@@ -486,12 +510,38 @@ function loadTitanModel() {
         // Apply dynamic TV screen canvas
         tvScreenManager.applyToModel(modelRoot);
 
-        // Hide chest 9-speaker driver box
+        // Phase 1: Remove external side speaker hardware, chest driver box, and hand claws
+        // Hides bulky arm-mounted speakers, turbine assemblies, struts, and hand claws to reveal a slender, vertical silhouette
+        const shouldHideNode = (child) => {
+          const name = child.name || '';
+          // 1. Material check for claws and acoustic hardware
+          if (child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            if (mats.some(m => m && (m.name === 'Claw' || m.name === 'membrane' || m.name === 'pierscienczarn' || m.name === 'doof_speakerdark' || m.name === 'doof_speakerdarkMATTE' || m.name === 'doof_speakerlight'))) {
+              return true;
+            }
+          }
+          // 2. Side speaker collections
+          if (name.startsWith('Collection')) return true;
+          // 3. Hardware struts, braces, turbines, and claw mounts (Cube, Cube001, Cube002, Cylinder, Plane, etc.)
+          if (name.startsWith('Cube') || name.startsWith('Cylinder') || name.startsWith('Plane')) return true;
+          // 4. Claws & melee blade weapons on hands/forearms
+          if (name.startsWith('melee') || name.includes('Claw')) return true;
+          // 5. Chest speaker box
+          if (name.includes('doof_speaker') || name.includes('doof_speakerside')) return true;
+          return false;
+        };
+
         modelRoot.traverse((child) => {
-          if (child.name && (child.name.includes('doof_speaker') || child.name.includes('doof_speakerside'))) {
+          if (shouldHideNode(child)) {
+            console.log('[HIDE_NODE]', child.name, child.type);
             child.visible = false;
           }
         });
+
+        window.__debugModel = modelRoot;
+
+
 
         // Normalize scale and center
         const bbox = new THREE.Box3().setFromObject(modelRoot);
@@ -508,6 +558,9 @@ function loadTitanModel() {
         modelRoot.position.z = -scaledCenter.z;
         modelRoot.position.y = -scaledBbox.min.y;
 
+        modelBasePos.copy(modelRoot.position);
+        modelBaseRot.copy(modelRoot.rotation);
+
         scene.add(modelRoot);
 
         if (screenPointLight) {
@@ -517,13 +570,18 @@ function loadTitanModel() {
         // Initialize animation and mechanics
         animationController.init(modelRoot, gltf.animations);
         mechanicalController.init(modelRoot);
+
+        // Instantly transition TV screen to IDLE so eyes and images are immediately active
+        if (tvScreenManager.currentMode === ScreenModes.LOADING) {
+          tvScreenManager.setMode(ScreenModes.IDLE);
+        }
       },
       undefined,
       (error) => {
         console.error('An error happened while loading GLTF:', error);
       }
     );
-  }, 600);
+  }, 40);
 }
 
 function optimizeMaterial(mat) {
@@ -543,6 +601,7 @@ function onWindowResize() {
   const height = container.clientHeight || window.innerHeight;
 
   camera.aspect = width / height;
+  applyResponsiveViewOffset();
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
@@ -587,6 +646,21 @@ function animate() {
     controls.target.lerp(cameraTarget.lookAt, delta * 2.5);
   }
   controls.update();
+
+  // Avatar Whole-Body Subtle Cursor Movement & Gentle Lean (subtle front-facing presence)
+  if (modelRoot && pointer) {
+    const targetX = modelBasePos.x + pointer.x * 0.025;
+    const targetY = modelBasePos.y + pointer.y * 0.015;
+    const targetRotY = modelBaseRot.y + pointer.x * 0.020;
+    const targetRotX = modelBaseRot.x - pointer.y * 0.015;
+    const targetRotZ = modelBaseRot.z - pointer.x * 0.010;
+
+    modelRoot.position.x = THREE.MathUtils.lerp(modelRoot.position.x, targetX, delta * 3.0);
+    modelRoot.position.y = THREE.MathUtils.lerp(modelRoot.position.y, targetY, delta * 3.0);
+    modelRoot.rotation.y = THREE.MathUtils.lerp(modelRoot.rotation.y, targetRotY, delta * 3.0);
+    modelRoot.rotation.x = THREE.MathUtils.lerp(modelRoot.rotation.x, targetRotX, delta * 3.0);
+    modelRoot.rotation.z = THREE.MathUtils.lerp(modelRoot.rotation.z, targetRotZ, delta * 3.0);
+  }
 
   // Update Dynamic CRT TV Screen
   if (tvScreenManager) {
@@ -642,8 +716,23 @@ function scheduleGlideToOverview(delayMs = 4000) {
 
 // Global Avatar Controller API
 export const AvatarController = {
+  isVoiceActive: false,
+
   initAvatar(canvasId = 'viewer') {
     initScene(canvasId);
+  },
+
+  setVoiceActive(active) {
+    this.isVoiceActive = !!active;
+    if (this.isVoiceActive) {
+      if (!tvScreenManager.isImageLocked && (tvScreenManager.currentMode === ScreenModes.IDLE || tvScreenManager.currentMode === ScreenModes.LOADING)) {
+        tvScreenManager.setMode(ScreenModes.LISTENING);
+      }
+    } else {
+      if (!tvScreenManager.isImageLocked && tvScreenManager.currentMode === ScreenModes.LISTENING) {
+        tvScreenManager.setMode(ScreenModes.IDLE);
+      }
+    }
   },
 
   setAvatarState(stateStr) {
@@ -651,27 +740,31 @@ export const AvatarController = {
     if (s === 'listening') {
       if (!tvScreenManager.isImageLocked) {
         tvScreenManager.setMode(ScreenModes.LISTENING);
-        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+        // Camera locked — no glideToTarget
       }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
     } else if (s === 'thinking') {
       if (!tvScreenManager.isImageLocked) {
         tvScreenManager.setMode(ScreenModes.THINKING);
-        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+        // Camera locked — no glideToTarget
       }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
     } else if (s === 'speaking') {
       if (!tvScreenManager.isImageLocked) {
         tvScreenManager.setMode(ScreenModes.SPEAKING);
-        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+        // Camera locked — no glideToTarget
       }
       animationController.setSpeakingState(true);
     } else {
       if (!tvScreenManager.isImageLocked) {
-        tvScreenManager.setMode(ScreenModes.IDLE);
-        scheduleGlideToOverview(4000);
+        // When voice dialogue is active, 'idle' from pipeline means waiting for user speech -> LISTENING!
+        if (this.isVoiceActive) {
+          tvScreenManager.setMode(ScreenModes.LISTENING);
+        } else {
+          tvScreenManager.setMode(ScreenModes.IDLE);
+        }
       }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);
@@ -682,13 +775,16 @@ export const AvatarController = {
     if (isSpeaking) {
       if (!tvScreenManager.isImageLocked) {
         tvScreenManager.setMode(ScreenModes.SPEAKING);
-        glideToTarget(CAMERA_PRESETS.FACE_CAM);
+        // Camera locked — no glideToTarget
       }
       animationController.setSpeakingState(true);
     } else {
       if (!tvScreenManager.isImageLocked && tvScreenManager.currentMode === ScreenModes.SPEAKING) {
-        tvScreenManager.setMode(ScreenModes.IDLE);
-        scheduleGlideToOverview(4000);
+        if (this.isVoiceActive) {
+          tvScreenManager.setMode(ScreenModes.LISTENING);
+        } else {
+          tvScreenManager.setMode(ScreenModes.IDLE);
+        }
       }
       animationController.setSpeakingState(false);
       mechanicalController.setVoiceIntensity(0);

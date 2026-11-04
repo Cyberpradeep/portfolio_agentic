@@ -1,4 +1,5 @@
 import { AvatarController } from './avatar.js';
+import { soundFX } from './soundFx.js';
 
 // ==========================================================================
 // DOM ELEMENTS
@@ -17,13 +18,7 @@ const unifiedDockEl = document.getElementById('unifiedDock');
 const switchToTextBtn = document.getElementById('switchToTextBtn');
 const switchToVoiceBtn = document.getElementById('switchToVoiceBtn');
 const contactModalBtn = document.getElementById('contactModalBtn');
-const idleStreamEl = document.getElementById('idleReasoningStream');
-const thoughtReasoningWrapEl = document.getElementById('thoughtReasoningWrap');
-const reasoningTraceEl = document.getElementById('reasoningTrace');
-const reasoningCursorEl = document.getElementById('reasoningCursor');
-const thoughtIndexTagEl = document.getElementById('thoughtIndexTag');
 const promptSparksEl = document.getElementById('promptSparks');
-
 // ==========================================================================
 // STATE
 // ==========================================================================
@@ -31,9 +26,12 @@ const mediaHandler = new MediaHandler();
 let isVoiceActive = false;
 let currentStreamingChunk = '';
 
+
+
 // Global AudioContext unlocker on first user interaction
 const unlockAudioOnGesture = () => {
   mediaHandler.initializeAudio();
+  soundFX.init();
   document.removeEventListener('click', unlockAudioOnGesture);
   document.removeEventListener('keydown', unlockAudioOnGesture);
   document.removeEventListener('touchstart', unlockAudioOnGesture);
@@ -50,6 +48,7 @@ let hasEverEngaged = false;
 function handleSessionPaused() {
   console.log('[SESSION] Standby triggered. Context preserved.');
   isVoiceActive = false;
+  AvatarController.setVoiceActive(false);
   mediaHandler.stopAudio();
   mediaHandler.stopAudioPlayback();
   AvatarController.setAvatarState('idle');
@@ -89,7 +88,11 @@ const geminiClient = new GeminiClient({
   autoConnect: false,
   onOpen: () => {
     console.log('[WS] Connected to /audio');
-    AvatarController.setAvatarState('idle');
+    if (isVoiceActive) {
+      AvatarController.setAvatarState('listening');
+    } else {
+      AvatarController.setAvatarState('idle');
+    }
     const introStatusEl = document.getElementById('introStatusText');
     if (introStatusEl) {
       introStatusEl.textContent = "SYNCHRONIZING NEURAL VOICE TWIN...";
@@ -124,6 +127,7 @@ const geminiClient = new GeminiClient({
       AvatarController.setAvatarState('idle');
       AvatarController.setSpeaking(false);
       isVoiceActive = false;
+  AvatarController.setVoiceActive(false);
       updateVoiceButtonUI();
     }
   },
@@ -296,10 +300,11 @@ function isDuplicateServerPayload(payload) {
       const first = processedEventIds.values().next().value;
       processedEventIds.delete(first);
     }
+    return false;
   }
 
   // 2. Fallback payload fingerprint (2.5s window to filter dual WS + SSE delivery)
-  const fp = `${payload.type}:${payload.url || (payload.project && payload.project.name) || payload.text || ''}`;
+  const fp = `${payload.type}:${payload.state || ''}:${payload.url || (payload.project && payload.project.name) || payload.text || ''}`;
   const now = Date.now();
   const last = recentEventFingerprints.get(fp);
   if (last && (now - last) < 2500) {
@@ -404,7 +409,11 @@ function handleServerPayload(payload) {
 
     case 'turn_complete':
       currentStreamingChunk = '';
-      AvatarController.setAvatarState('idle');
+      if (isVoiceActive) {
+        AvatarController.setAvatarState('listening');
+      } else {
+        AvatarController.setAvatarState('idle');
+      }
       AvatarController.setSpeaking(false);
       resetInactivityWatchdog();
       break;
@@ -418,7 +427,11 @@ function handleServerPayload(payload) {
       } else if (state === 'speaking') {
         AvatarController.setAvatarState('speaking');
       } else if (state === 'connected' || state === 'idle' || state === 'ready') {
-        AvatarController.setAvatarState('idle');
+        if (isVoiceActive) {
+          AvatarController.setAvatarState('listening');
+        } else {
+          AvatarController.setAvatarState('idle');
+        }
       }
       break;
     }
@@ -490,6 +503,17 @@ function handleServerPayload(payload) {
         openSingleExternalWindow(payload.url);
       }
       break;
+
+    case 'error': {
+      const errMsg = payload.message || payload.error || 'An unexpected error occurred.';
+      console.error('[SERVER_ERROR]', errMsg);
+      if (activeStatementEl) {
+        activeStatementEl.textContent = `Error: ${errMsg}`;
+      }
+      AvatarController.setAvatarState('idle');
+      AvatarController.setSpeaking(false);
+      break;
+    }
   }
 }// ==========================================================================
 // STUDIO RIGHT FLANK GENUI RENDERERS
@@ -497,7 +521,10 @@ function handleServerPayload(payload) {
 
 let lastGenUICall = null;
 
+let isGenUIState = false;
 function setGenUIOpen(isOpen) {
+  const changed = isGenUIState !== isOpen;
+  isGenUIState = isOpen;
   if (isOpen) {
     document.body.classList.add('has-genui-open');
     dismissIdleStream();
@@ -506,6 +533,9 @@ function setGenUIOpen(isOpen) {
     resetInactivityWatchdog();
   }
   AvatarController.setGenUIActive(isOpen);
+  if (changed) {
+    soundFX.playShutter();
+  }
 }
 
 function clearGenUI() {
@@ -741,10 +771,12 @@ function renderGenUIExperienceTimeline(experience) {
   let list = [];
   if (experience.professional_experience) {
     experience.professional_experience.forEach(p => {
+      const period = p.period || (p.duration ? `${p.duration.start} – ${p.duration.end}` : '2024 – Present');
+      const desc = p.description || (p.responsibilities ? p.responsibilities.slice(0, 3).join(' · ') : '') || (p.client_exposure ? p.client_exposure.description : '');
       list.push({
-        year: p.period || '2024 - Present',
+        year: period,
         title: `${p.role} @ ${p.company}`,
-        desc: p.description || ''
+        desc: desc
       });
     });
   } else if (experience.career_timeline) {
@@ -1084,185 +1116,8 @@ function renderGenUIGitHubActivity(payload) {
 
   genuiContainerEl.appendChild(slate);
 }
-// ==========================================================================
-// EMBEDDED BACKGROUND THOUGHT STREAM — Architectural Wall Inscription
-// ==========================================================================
-const REASONING_SEQUENCES = [
-  {
-    tag: '[01 // CONTEXT ARCHITECTURE]',
-    question: 'How do you stop context window explosion and token runaway during 15-minute voice sessions?',
-    traceSteps: [
-      '> profiling token velocity: 45 turns/session ≈ 72k tokens',
-      ' → sliding-window compression summarizes turns older than T-6 into 180-token structured state digest',
-      ' → tool definitions & system invariants pinned',
-      ' → token footprint capped indefinitely at 4.2k tokens'
-    ]
-  },
-  {
-    tag: '[02 // AGENTIC DETERMINISM]',
-    question: 'Why eliminate raw ReAct loops in multi-turn production agents?',
-    traceSteps: [
-      '> ReAct loops suffer 11.4% hallucinated termination failure',
-      ' → agent retries idempotency violations in cyclic spirals',
-      ' → replaced with hierarchical state machines: LLM handles node classification',
-      ' → deterministic graph engine dictates valid transitions',
-      ' → zero stuck-loop exceptions'
-    ]
-  },
-  {
-    tag: '[03 // REAL-TIME AUDIO PIPELINE]',
-    question: 'How did you engineer sub-800ms speech turnaround over raw WebSockets in Voice AI?',
-    traceSteps: [
-      '> eliminated HTTP chunking latency',
-      ' → bidirectional 16kHz PCM streaming over raw WebSockets',
-      ' → client-side energy VAD with 350ms silence threshold triggers early speculative audio cutoff',
-      ' → end-to-end turnaround dropped from 1450ms to 620ms'
-    ]
-  },
-  {
-    tag: '[04 // MCP TOOL ORCHESTRATION]',
-    question: 'How does PizzaBot coordinate MCP tools across 20 timezones without hallucinating store hours?',
-    traceSteps: [
-      '> LLM arithmetic on UTC offsets produces 23% time hallucinations',
-      ' → delegated to deterministic MCP tools',
-      ' → agent extracts ISO-8601 intent',
-      ' → tool queries local store schedule registry with tz-aware validation',
-      ' → zero false opening hour commitments'
-    ]
-  }
-];
-
-let idleStreamTimer = null;
-let idleStreamActive = false;
-let idleTypingTimer = null;
-let currentSequenceIdx = 0;
-let idleInactivityTimer = null;
-const IDLE_INACTIVITY_DELAY_MS = 22000; // 22 seconds of silence / idle time
-
-function resetInactivityWatchdog() {
-  if (idleInactivityTimer) {
-    clearTimeout(idleInactivityTimer);
-    idleInactivityTimer = null;
-  }
-
-  // Dismiss currently active thought stream if user is active
-  if (idleStreamActive) {
-    dismissIdleStream();
-  }
-
-  // If voice session is active, do not schedule idle stream
-  if (isVoiceActive) return;
-
-  // Schedule awakening after 22 seconds of pure inactivity
-  idleInactivityTimer = setTimeout(() => {
-    if (!isVoiceActive && !document.hidden) {
-      startIdleReasoningStream();
-    }
-  }, IDLE_INACTIVITY_DELAY_MS);
-}
-
-function startIdleReasoningStream() {
-  if (!idleStreamEl || !reasoningTraceEl || !thoughtReasoningWrapEl) return;
-  if (idleStreamActive || isVoiceActive || document.body.classList.contains('has-genui-open')) return;
-
-  idleStreamActive = true;
-  runReasoningCycle();
-}
-
-function runReasoningCycle() {
-  if (!idleStreamActive || isVoiceActive) return;
-
-  const seq = REASONING_SEQUENCES[currentSequenceIdx];
-  currentSequenceIdx = (currentSequenceIdx + 1) % REASONING_SEQUENCES.length;
-
-  // Reset visual states
-  if (thoughtIndexTagEl) thoughtIndexTagEl.textContent = seq.tag;
-  if (thoughtReasoningWrapEl) thoughtReasoningWrapEl.classList.remove('is-hidden');
-  if (reasoningTraceEl) reasoningTraceEl.textContent = '';
-  if (reasoningCursorEl) reasoningCursorEl.classList.remove('is-hidden');
-
-  // Reveal the thought container directly on the background wall
-  idleStreamEl.classList.remove('is-dismissed');
-  idleStreamEl.classList.add('is-active');
-
-  // Step 1: Initial quiet pause (500ms) with blinking cursor before telemetry streams
-  idleStreamTimer = setTimeout(() => {
-    if (!idleStreamActive || isVoiceActive) return;
-
-    // Step 2: Stream reasoning telemetry trace step-by-step with real-time thinking pauses
-    streamReasoningSteps(reasoningTraceEl, seq.traceSteps, 0, () => {
-      if (!idleStreamActive || isVoiceActive) return;
-
-      // Finished streaming all steps: hide cursor
-      if (reasoningCursorEl) reasoningCursorEl.classList.add('is-hidden');
-
-      // Step 3: Hold contemplation for 9.5 seconds so user can comfortably read
-      idleStreamTimer = setTimeout(() => {
-        if (!idleStreamActive || isVoiceActive) return;
-
-        // Fade out
-        idleStreamEl.classList.remove('is-active');
-
-        // Step 4: Calm resting gap (4.5s) before the next thought emerges
-        idleStreamTimer = setTimeout(() => {
-          if (!idleStreamActive || isVoiceActive) return;
-          runReasoningCycle();
-        }, 4500);
-      }, 9500);
-    });
-  }, 500);
-}
-
-function typeString(targetEl, text, speedMs, onComplete) {
-  let i = 0;
-  function step() {
-    if (!idleStreamActive) return;
-    if (i < text.length) {
-      targetEl.textContent += text[i];
-      i++;
-      idleTypingTimer = setTimeout(step, speedMs);
-    } else {
-      if (onComplete) onComplete();
-    }
-  }
-  step();
-}
-
-function streamReasoningSteps(targetEl, steps, stepIdx, onComplete) {
-  if (!idleStreamActive) return;
-  if (!steps || stepIdx >= steps.length) {
-    if (onComplete) onComplete();
-    return;
-  }
-
-  const stepText = steps[stepIdx];
-  // Stream this clause character-by-character at a deliberate speed (34ms per character)
-  typeString(targetEl, stepText, 34, () => {
-    if (!idleStreamActive) return;
-
-    if (stepIdx < steps.length - 1) {
-      // Thinking pause between deductions: stop typing, cursor blinks in place for 850ms
-      idleTypingTimer = setTimeout(() => {
-        if (!idleStreamActive) return;
-        streamReasoningSteps(targetEl, steps, stepIdx + 1, onComplete);
-      }, 850);
-    } else {
-      if (onComplete) onComplete();
-    }
-  });
-}
-
-function dismissIdleStream() {
-  idleStreamActive = false;
-  if (idleStreamTimer) { clearTimeout(idleStreamTimer); idleStreamTimer = null; }
-  if (idleTypingTimer) { clearTimeout(idleTypingTimer); idleTypingTimer = null; }
-  if (idleStreamEl) {
-    idleStreamEl.classList.add('is-dismissed');
-    idleStreamEl.classList.remove('is-active');
-  }
-}
-
-
+function resetInactivityWatchdog() {}
+function dismissIdleStream() {}
 
 // ==========================================================================
 // QUERY DISPATCHER
@@ -1297,7 +1152,11 @@ function sendUserQuery(text, preserveGenUI = false) {
         // Fallback in case SSE channel is disconnected or lagged
         if (data && data.response && activeStatementEl && activeStatementEl.textContent === 'Synthesizing response...') {
           handleAssistantStreamChunk(data.response, true);
-          AvatarController.setAvatarState('idle');
+          if (isVoiceActive) {
+            AvatarController.setAvatarState('listening');
+          } else {
+            AvatarController.setAvatarState('idle');
+          }
         }
       } else {
         console.error('[TEXT] Error sending query:', res.status, res.statusText);
@@ -1350,6 +1209,7 @@ function setupEventListeners() {
   window.addEventListener('session:unlock_audio', () => {
     console.log('[AUTOGREET] AudioContext unlocked via user gesture');
     mediaHandler.initializeAudio();
+    soundFX.init();
   });
 
   window.addEventListener('session:start_greet', async () => {
@@ -1358,6 +1218,7 @@ function setupEventListeners() {
 
     // Voice-first: activate voice session and set button to ON immediately
     isVoiceActive = true;
+    AvatarController.setVoiceActive(true);
     updateVoiceButtonUI();
     setDockMode('voice');
 
@@ -1385,9 +1246,11 @@ function setupEventListeners() {
   // --- Mode Switching (Voice ⇄ Text) ---
   if (switchToTextBtn) {
     switchToTextBtn.addEventListener('click', () => {
+      soundFX.playRelayClick();
       // Pause voice Gemini session cleanly when switching to text
       if (isVoiceActive || (geminiClient && geminiClient.isConnected())) {
         isVoiceActive = false;
+  AvatarController.setVoiceActive(false);
         mediaHandler.stopAudio();
         mediaHandler.stopAudioPlayback();
         geminiClient.disconnect();
@@ -1401,11 +1264,13 @@ function setupEventListeners() {
 
   if (switchToVoiceBtn) {
     switchToVoiceBtn.addEventListener('click', async () => {
+      soundFX.playRelayClick();
       setDockMode('voice');
       // Resume voice dialogue cleanly
       if (!isVoiceActive) {
         dismissPromptSparks();
         isVoiceActive = true;
+    AvatarController.setVoiceActive(true);
         updateVoiceButtonUI();
         if (!geminiClient.isConnected()) {
           geminiClient.connect();
@@ -1420,6 +1285,7 @@ function setupEventListeners() {
         } catch (err) {
           console.error('[MIC] Failed to resume audio on switch to voice:', err);
           isVoiceActive = false;
+  AvatarController.setVoiceActive(false);
           updateVoiceButtonUI();
           AvatarController.setAvatarState('idle');
         }
@@ -1430,12 +1296,14 @@ function setupEventListeners() {
   // --- Voice-to-Voice Toggle ---
   if (talkBtn) {
     talkBtn.addEventListener('click', async () => {
+      soundFX.playRelayClick();
       mediaHandler.initializeAudio(); // Unlock audio on user interaction
       setDockMode('voice');
       if (!isVoiceActive) {
         // Engaging voice session
         dismissPromptSparks();
         isVoiceActive = true;
+    AvatarController.setVoiceActive(true);
         updateVoiceButtonUI();
         if (!geminiClient.isConnected()) {
           geminiClient.connect();
@@ -1450,6 +1318,7 @@ function setupEventListeners() {
         } catch (err) {
           console.error('[MIC] Failed to start audio:', err);
           isVoiceActive = false;
+  AvatarController.setVoiceActive(false);
           updateVoiceButtonUI();
           AvatarController.setAvatarState('idle');
           resetInactivityWatchdog();
@@ -1460,6 +1329,7 @@ function setupEventListeners() {
       } else {
         // Disengaging voice session (user paused or stopped)
         isVoiceActive = false;
+  AvatarController.setVoiceActive(false);
         mediaHandler.stopAudio();
         mediaHandler.stopAudioPlayback();
         geminiClient.disconnect();
@@ -1483,6 +1353,7 @@ function setupEventListeners() {
     syncSendBtnState();
 
     sendBtn.addEventListener('click', () => {
+      soundFX.playSubtleTap();
       const query = textInputEl.value.trim();
       if (!query) return;
       sendUserQuery(query);
@@ -1493,6 +1364,7 @@ function setupEventListeners() {
     textInputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        soundFX.playSubtleTap();
         const query = textInputEl.value.trim();
         if (!query) return;
         sendUserQuery(query);
@@ -1505,6 +1377,7 @@ function setupEventListeners() {
   // --- Contact Modal ---
   if (contactModalBtn) {
     contactModalBtn.addEventListener('click', () => {
+      soundFX.playSubtleTap();
       renderGenUIContactModal();
     });
   }
@@ -1520,17 +1393,14 @@ function setupEventListeners() {
     resetInactivityWatchdog();
   }
 
-  // --- Global User Activity Watchdog (any click/key/tap resets idle timer) ---
-  window.addEventListener('pointerdown', resetInactivityWatchdog, { passive: true });
-  window.addEventListener('keydown', resetInactivityWatchdog, { passive: true });
-  window.addEventListener('touchstart', resetInactivityWatchdog, { passive: true });
-
+  // (SFX operates automatically via procedural Web Audio synthesizer)
 
   // --- Interactive Click-to-Query on Skill Chips & Specimen Rows ---
   if (genuiContainerEl) {
     genuiContainerEl.addEventListener('click', (e) => {
       const skillTag = e.target.closest('.slate-skill-tag');
       if (skillTag) {
+        soundFX.playSubtleTap();
         const skillName = skillTag.textContent.trim();
         sendUserQuery(`Tell me about your experience with ${skillName}`);
         return;
@@ -1538,6 +1408,7 @@ function setupEventListeners() {
 
       const projectItem = e.target.closest('.slate-project-item');
       if (projectItem && !e.target.closest('a') && !e.target.closest('button')) {
+        soundFX.playSubtleTap();
         const titleEl = projectItem.querySelector('.slate-project-title');
         if (titleEl) {
           const projName = titleEl.textContent.trim();
@@ -1552,6 +1423,7 @@ function setupEventListeners() {
     promptSparksEl.addEventListener('click', (e) => {
       const sparkChip = e.target.closest('.spark-chip');
       if (sparkChip) {
+        soundFX.playSubtleTap();
         const query = sparkChip.getAttribute('data-query') || sparkChip.textContent.trim();
         dismissPromptSparks();
         sendUserQuery(query);
