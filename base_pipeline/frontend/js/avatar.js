@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
-import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=67';
+import { tvScreenManager, ScreenModes } from './tvScreenManager.js?v=68';
 import { animationController } from './animationController.js?v=8';
 import { mechanicalController } from './mechanicalController.js?v=7';
 import { soundFX } from './soundFx.js';
@@ -38,81 +38,41 @@ const CAMERA_PRESETS = {
 let currentActivePreset = CAMERA_PRESETS.BUST;
 
 function getResponsiveCameraPreset(preset) {
-  if (!preset) return { pos: new THREE.Vector3(0, 1.85, 4.3), lookAt: new THREE.Vector3(0, 1.75, 0) };
+  const p = CAMERA_PRESETS.BUST;
   const width = window.innerWidth;
   const height = window.innerHeight;
   const aspect = width / height;
 
-  const isFaceCam = (preset === CAMERA_PRESETS.FACE_CAM || preset === CAMERA_PRESETS.SCREEN_CLOSEUP);
-
   if (aspect < 0.55) {
-    // Ultra-tall mobile portrait (Pixel 8, iPhone 14/15/16 Pro Max, Galaxy S series)
-    if (isGenUIActive) {
-      return {
-        pos: new THREE.Vector3(0, 2.24, 3.80),
-        lookAt: new THREE.Vector3(0, 2.04, 0)
-      };
-    }
-    if (isFaceCam) {
-      return {
-        pos: new THREE.Vector3(0, 2.05, 3.80),
-        lookAt: new THREE.Vector3(0, 1.85, 0)
-      };
-    }
-    // Bust overview on ultra-tall mobile
+    // Ultra-tall mobile portrait: fixed exact framing
     return {
       pos: new THREE.Vector3(0, 1.90, 4.20),
       lookAt: new THREE.Vector3(0, 1.70, 0)
     };
   } else if (aspect < 0.85) {
-    // Standard mobile & phablet portrait (e.g. 375x667, 390x844, 412x915, 768px tablet portrait)
-    if (isGenUIActive) {
-      return {
-        pos: new THREE.Vector3(0, 2.20, 3.75),
-        lookAt: new THREE.Vector3(0, 2.00, 0)
-      };
-    }
-    if (isFaceCam) {
-      return {
-        pos: new THREE.Vector3(0, 2.00, 3.70),
-        lookAt: new THREE.Vector3(0, 1.80, 0)
-      };
-    }
-    // Bust framing for standard mobile
+    // Standard mobile & phablet portrait: fixed exact framing
     return {
       pos: new THREE.Vector3(0, 1.90, 4.00),
       lookAt: new THREE.Vector3(0, 1.70, 0)
     };
   } else if (aspect < 1.05) {
-    // Tablets in portrait / Square foldables
-    if (isGenUIActive) {
-      return {
-        pos: new THREE.Vector3(0, 2.20, 3.40),
-        lookAt: new THREE.Vector3(0, 2.00, 0)
-      };
-    }
-    if (isFaceCam) {
-      return {
-        pos: new THREE.Vector3(0, 2.15, 3.40),
-        lookAt: new THREE.Vector3(0, 1.90, 0)
-      };
-    }
+    // Tablets in portrait / Square foldables: fixed exact framing
     return {
       pos: new THREE.Vector3(0, 1.75, 4.80),
       lookAt: new THREE.Vector3(0, 1.55, 0)
     };
   } else if (height < 540) {
-    // Short landscape mobile screens
+    // Short landscape mobile screens: fixed exact framing
     return {
-      pos: new THREE.Vector3(preset.pos.x, preset.pos.y - 0.05, preset.pos.z * 1.25),
-      lookAt: new THREE.Vector3(preset.lookAt.x, preset.lookAt.y, preset.lookAt.z)
+      pos: new THREE.Vector3(p.pos.x, p.pos.y - 0.05, p.pos.z * 1.25),
+      lookAt: new THREE.Vector3(p.lookAt.x, p.lookAt.y, p.lookAt.z)
     };
   }
 
-  // Desktop default
+  // Desktop default: exact fixed BUST position
   return {
-    pos: preset.pos.clone(),
-    lookAt: preset.lookAt.clone()
+    pos: p.pos.clone(),
+    lookAt: p.lookAt.clone()
   };
 }
 
@@ -184,15 +144,18 @@ function initScene(canvasId) {
     container.appendChild(renderer.domElement);
   }
 
-  // 4. OrbitControls: camera drag rotation disabled to prevent 180° / side viewing
+  // 4. OrbitControls: completely locked to exact position (no rotation, no pan, no zoom)
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.06;
   controls.enablePan = false; // Keeps avatar centered in studio stage
   controls.enableRotate = false; // Disables orbital dragging so avatar stays front-facing
+  controls.enableZoom = false; // Completely disables mouse wheel and touch pinch zoom
+  renderer.domElement.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+  renderer.domElement.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
-  controls.minDistance = 2.4; // Clamped close distance to prevent mesh clipping
-  controls.maxDistance = 6.2; // Clamped far distance to keep model framed
+  controls.minDistance = 2.6;
+  controls.maxDistance = 2.6;
   controls.target.copy(cameraTarget.lookAt);
 
   controls.addEventListener('start', () => {
@@ -691,27 +654,28 @@ function animate() {
   }
 }
 
-function glideToTarget(preset) {
+function glideToTarget(preset = CAMERA_PRESETS.BUST) {
   isUserInteracting = false;
   if (userInteractionTimeout) {
     clearTimeout(userInteractionTimeout);
     userInteractionTimeout = null;
   }
-  currentActivePreset = preset;
+  // Fixed camera: always lock to BUST position — no zoom in, no zoom out
+  currentActivePreset = CAMERA_PRESETS.BUST;
   if (idleCameraTimer) {
     clearTimeout(idleCameraTimer);
     idleCameraTimer = null;
   }
-  const responsive = getResponsiveCameraPreset(preset);
+  const responsive = getResponsiveCameraPreset(CAMERA_PRESETS.BUST);
   cameraTarget.pos.copy(responsive.pos);
   cameraTarget.lookAt.copy(responsive.lookAt);
 }
 
 function scheduleGlideToOverview(delayMs = 4000) {
-  if (idleCameraTimer) clearTimeout(idleCameraTimer);
-  idleCameraTimer = setTimeout(() => {
-    glideToTarget(CAMERA_PRESETS.FULL_BODY);
-  }, delayMs);
+  if (idleCameraTimer) {
+    clearTimeout(idleCameraTimer);
+    idleCameraTimer = null;
+  }
 }
 
 // Global Avatar Controller API
@@ -793,16 +757,7 @@ export const AvatarController = {
 
   setGenUIActive(active) {
     isGenUIActive = !!active;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const aspect = width / height;
-    if (aspect < 0.88 || width <= 768) {
-      if (isGenUIActive) {
-        glideToTarget(CAMERA_PRESETS.FACE_CAM);
-      } else {
-        scheduleGlideToOverview(1800);
-      }
-    }
+    // Camera locked in exact position — no zoom in or zoom out
   },
 
   updateTranscript(text) {
@@ -822,17 +777,17 @@ export const AvatarController = {
 
   displayImage(url, title = '', lock = true) {
     tvScreenManager.displayImage(url, title, lock);
-    glideToTarget(CAMERA_PRESETS.SCREEN_CLOSEUP);
+    // Camera locked in exact position — no zoom in
   },
 
   displayImageCarousel(images, interval = 3.8) {
     tvScreenManager.displayImageCarousel(images, interval);
-    glideToTarget(CAMERA_PRESETS.SCREEN_CLOSEUP);
+    // Camera locked in exact position — no zoom in
   },
 
   clearImage() {
     tvScreenManager.clearImage();
-    glideToTarget(CAMERA_PRESETS.FULL_BODY);
+    // Camera locked in exact position — no zoom out
   },
 
   unlockScreen() {
@@ -840,11 +795,7 @@ export const AvatarController = {
   },
 
   setCameraPreset(presetKey) {
-    const preset = CAMERA_PRESETS[presetKey];
-    if (preset) {
-      soundFX.playClick();
-      glideToTarget(preset);
-    }
+    // Camera locked in exact position
   },
 
   toggleAudio() {
